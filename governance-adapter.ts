@@ -5,7 +5,7 @@ import type {
   LaneName,
   PrimitiveAdmissibility,
   PrimitiveResult
-} from "./lib/types";
+} from "./types";
 
 const DEFAULT_HARMONIC_ONLY_API_URL = "https://www.solace-harmonic.com/api/evaluate";
 const DEFAULT_HARMONIC_GOVERNANCE_API_URL = "https://www.solace-harmonic.com/api/governance-pack";
@@ -178,29 +178,41 @@ function parsePrimitiveResults(json: Record<string, unknown>): PrimitiveResult[]
     ...Object.keys(primitiveSource).filter((key) => !orderedKeys.includes(key))
   ];
 
-  const parsed = keys
-    .map((key) => {
-      const primitive = asRecord(primitiveSource[key]);
-      if (!primitive) return null;
+  const parsed: PrimitiveResult[] = [];
 
-      const boundarySignals = normalizeSignals(primitive.boundary_signals);
-      const driftSignals = normalizeSignals(primitive.drift_signals);
-      const authoritySignals = normalizeSignals(primitive.authority_signals);
-      const admissibilitySignals = normalizeSignals(primitive.admissibility_signals);
+  for (const key of keys) {
+    const primitive = asRecord(primitiveSource[key]);
+    if (!primitive) continue;
 
-      return {
-        key,
-        label: primitiveLabel(key),
-        outcome: getString(primitive.outcome, "UNKNOWN"),
-        admissible: normalizeAdmissible(primitive.admissible),
-        action: typeof primitive.action === "string" ? primitive.action : undefined,
-        artifactHash: typeof primitive.artifact_hash === "string" ? primitive.artifact_hash : undefined,
-        failedPrimitives: asArray(primitive.failed_primitives).map(String),
-        signals: [...driftSignals, ...authoritySignals, ...boundarySignals, ...admissibilitySignals],
-        metadata: metadataFromPrimitive(key, primitive)
-      } satisfies PrimitiveResult;
-    })
-    .filter((item): item is PrimitiveResult => Boolean(item));
+    const boundarySignals = normalizeSignals(primitive.boundary_signals);
+    const driftSignals = normalizeSignals(primitive.drift_signals);
+    const authoritySignals = normalizeSignals(primitive.authority_signals);
+    const admissibilitySignals = normalizeSignals(primitive.admissibility_signals);
+
+    const result: PrimitiveResult = {
+      key,
+      label: primitiveLabel(key),
+      outcome: getString(primitive.outcome, "UNKNOWN"),
+      admissible: normalizeAdmissible(primitive.admissible),
+      signals: [...driftSignals, ...authoritySignals, ...boundarySignals, ...admissibilitySignals],
+      metadata: metadataFromPrimitive(key, primitive)
+    };
+
+    if (typeof primitive.action === "string") {
+      result.action = primitive.action;
+    }
+
+    if (typeof primitive.artifact_hash === "string") {
+      result.artifactHash = primitive.artifact_hash;
+    }
+
+    const failedPrimitives = asArray(primitive.failed_primitives).map(String);
+    if (failedPrimitives.length) {
+      result.failedPrimitives = failedPrimitives;
+    }
+
+    parsed.push(result);
+  }
 
   return parsed.length ? parsed : undefined;
 }
