@@ -10,35 +10,39 @@ The goal is to show the geometry:
 
 > Same model. Same prompt. Different bindings. Different execution behavior.
 
-## Why this exists
+## Required Vercel environment variables
 
-This repo is a lightweight comparison harness, not a production governance service. It demonstrates whether governance changes model behavior by running the same prompt through the same base LLM under different constraint profiles.
+In Vercel Project Settings → Environment Variables, add:
 
-## Setup
+```bash
+VERCEL_AI_GATEWAY_API_KEY=your_vercel_ai_gateway_key
+VERCEL_AI_GATEWAY_MODEL=openai/gpt-4.1-mini
+HARMONIC_API_KEY=your_hs_live_key
+HARMONIC_API_URL=https://www.solace-harmonic.com/api/evaluate
+```
+
+`HARMONIC_API_URL` has a code default of `https://www.solace-harmonic.com/api/evaluate`, so the minimum required Harmonic variable is usually:
+
+```bash
+HARMONIC_API_KEY=your_hs_live_key
+```
+
+The app also accepts lane-specific overrides:
+
+```bash
+HARMONIC_ONLY_API_URL=
+HARMONIC_ONLY_API_KEY=
+HARMONIC_GOVERNANCE_API_URL=
+HARMONIC_GOVERNANCE_API_KEY=
+```
+
+If those are omitted, both governed lanes use `HARMONIC_API_URL` + `HARMONIC_API_KEY`.
+
+## Local setup
 
 ```bash
 npm install
 cp .env.example .env.local
-```
-
-Fill in `.env.local`:
-
-```bash
-OPENAI_API_KEY=sk-your-openai-key
-OPENAI_MODEL=gpt-4.1-mini
-
-# Optional, if Harmonic-only has its own endpoint
-HARMONIC_ONLY_API_URL=
-HARMONIC_ONLY_API_KEY=
-
-# Harmonic + Governance endpoint/key
-HARMONIC_GOVERNANCE_API_URL=https://your-harmonic-endpoint.example/api/evaluate
-HARMONIC_GOVERNANCE_API_KEY=hs_live_your_key_here
-```
-
-Then run:
-
-```bash
 npm run dev
 ```
 
@@ -46,7 +50,7 @@ Open `http://localhost:3000`.
 
 ## Security note
 
-Do not commit live `hs_live_*` keys. Use `.env.local` only. If a live key has been pasted into chat, treat it as exposed and rotate it after testing.
+Do not commit live `hs_live_*` keys. Use `.env.local` locally and Vercel Environment Variables in production. If a live key has been pasted into chat, treat it as exposed and rotate it after testing.
 
 ## Endpoint adapter
 
@@ -72,11 +76,15 @@ The harness sends:
     "authority_continuity",
     "consequence_boundary",
     "runtime_admissibility"
-  ]
+  ],
+  "metadata": {
+    "client": "harmonic-governance-compare",
+    "version": "0.2.0"
+  }
 }
 ```
 
-The adapter expects a flexible response shape and normalizes common fields:
+The adapter accepts flexible response fields and normalizes common shapes:
 
 ```json
 {
@@ -86,7 +94,7 @@ The adapter expects a flexible response shape and normalizes common fields:
 }
 ```
 
-If your real endpoint uses different field names, update only `lib/governance-adapter.ts`.
+It also recognizes `recommended_action`, `recommendation`, `status`, `result`, `outcome`, `reason`, `explanation`, `rationale`, `warnings`, `findings`, and `issues`.
 
 ## Default demo prompt
 
@@ -99,18 +107,3 @@ Expected behavior:
 - Raw lane may answer clinically.
 - Harmonic lane should preserve uncertainty and consequence awareness.
 - Harmonic + Governance lane should detect stale authorization / changed reality and likely constrain or escalate.
-
-## Intended next upgrade
-
-Add a saved run artifact containing:
-
-- prompt
-- raw response
-- harmonic response
-- harmonic + governance response
-- governance decisions
-- flags
-- timestamp
-- hash
-
-That would make each comparison replayable and auditable.
