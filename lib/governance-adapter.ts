@@ -120,18 +120,21 @@ function normalizeAdmissible(value: unknown): PrimitiveAdmissibility {
 }
 
 function normalizeSignals(value: unknown): GovernanceSignal[] {
-  return asArray(value)
-    .map((item) => {
-      const signal = asRecord(item);
-      if (!signal) return null;
-      return {
-        primitive: typeof signal.primitive === "string" ? signal.primitive : undefined,
-        code: getString(signal.code, "signal"),
-        severity: getString(signal.severity, "info"),
-        message: getString(signal.message, JSON.stringify(signal))
-      } satisfies GovernanceSignal;
-    })
-    .filter((item): item is GovernanceSignal => Boolean(item));
+  const signals: GovernanceSignal[] = [];
+
+  for (const item of asArray(value)) {
+    const signal = asRecord(item);
+    if (!signal) continue;
+
+    signals.push({
+      primitive: typeof signal.primitive === "string" ? signal.primitive : undefined,
+      code: getString(signal.code, "signal"),
+      severity: getString(signal.severity, "info"),
+      message: getString(signal.message, JSON.stringify(signal))
+    });
+  }
+
+  return signals;
 }
 
 function metadataFromPrimitive(key: string, primitive: Record<string, unknown>): Array<{ label: string; value: string }> {
