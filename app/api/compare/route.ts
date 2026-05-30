@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { evaluateGovernance } from "../../../lib/governance-adapter";
-import { callSameLlm } from "../../../lib/openai";
+import { callSameLlm, getModelName, getProviderLabel } from "../../../lib/openai";
 import {
   HARMONIC_GOVERNANCE_SYSTEM_PROMPT,
   HARMONIC_ONLY_SYSTEM_PROMPT,
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     const payload: CompareResponse = {
       prompt: parsed.prompt,
       scenario: parsed.scenario,
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      model: `${getProviderLabel()} · ${getModelName()}`,
       generatedAt: new Date().toISOString(),
       lanes: results
     };
