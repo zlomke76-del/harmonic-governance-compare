@@ -10,7 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "15.3.6",
+    "next": "15.3.8",
     "react": "19.0.1",
     "react-dom": "19.0.1",
     "openai": "^4.104.0",
@@ -21,7 +21,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "eslint": "^9.27.0",
-    "eslint-config-next": "15.3.6",
+    "eslint-config-next": "15.3.8",
     "typescript": "^5.8.3"
   }
 }
