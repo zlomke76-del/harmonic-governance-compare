@@ -1,5 +1,8 @@
 import type { GovernanceDecision, GovernanceEvaluation, LaneName } from "./types";
 
+const DEFAULT_HARMONIC_GOVERNANCE_API_URL = "https://www.solace-harmonic.com/api/evaluate";
+const DEFAULT_HARMONIC_ONLY_API_URL = "https://www.solace-harmonic.com/api/evaluate";
+
 function normalizeDecision(value: unknown): GovernanceDecision {
   const normalized = String(value || "").toUpperCase();
   if (["ALLOW", "CONSTRAIN", "ESCALATE", "BLOCK"].includes(normalized)) {
@@ -22,19 +25,46 @@ function getFlags(value: unknown): string[] {
 function endpointForLane(lane: LaneName): { url?: string; key?: string } {
   if (lane === "harmonic") {
     return {
-      url: process.env.HARMONIC_ONLY_API_URL,
-      key: process.env.HARMONIC_ONLY_API_KEY
+      url: process.env.HARMONIC_ONLY_API_URL || process.env.HARMONIC_API_URL || DEFAULT_HARMONIC_ONLY_API_URL,
+      key: process.env.HARMONIC_ONLY_API_KEY || process.env.HARMONIC_API_KEY || process.env.HARMONIC_GOVERNANCE_API_KEY
     };
   }
 
   if (lane === "harmonic_governance") {
     return {
-      url: process.env.HARMONIC_GOVERNANCE_API_URL,
-      key: process.env.HARMONIC_GOVERNANCE_API_KEY
+      url: process.env.HARMONIC_GOVERNANCE_API_URL || process.env.HARMONIC_API_URL || DEFAULT_HARMONIC_GOVERNANCE_API_URL,
+      key: process.env.HARMONIC_GOVERNANCE_API_KEY || process.env.HARMONIC_API_KEY
     };
   }
 
   return {};
+}
+
+function buildGovernancePayload(params: {
+  lane: LaneName;
+  prompt: string;
+  response: string;
+  scenario: string;
+}) {
+  return {
+    mode: params.lane,
+    scenario: params.scenario,
+    input: params.prompt,
+    output: params.response,
+    checks: [
+      "truth",
+      "compassion",
+      "accountability",
+      "reality_contact",
+      "authority_continuity",
+      "consequence_boundary",
+      "runtime_admissibility"
+    ],
+    metadata: {
+      client: "harmonic-governance-compare",
+      version: "0.2.0"
+    }
+  };
 }
 
 export async function evaluateGovernance(params: {
@@ -58,7 +88,7 @@ export async function evaluateGovernance(params: {
     return {
       available: false,
       decision: "UNKNOWN",
-      summary: "No external governance endpoint configured for this lane. Prompt-level constraints were still applied.",
+      summary: "No Harmonic API key configured for this lane. Prompt-level constraints were still applied.",
       flags: ["endpoint-not-configured"]
     };
   }
@@ -70,21 +100,7 @@ export async function evaluateGovernance(params: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`
       },
-      body: JSON.stringify({
-        mode: params.lane,
-        scenario: params.scenario,
-        input: params.prompt,
-        output: params.response,
-        checks: [
-          "truth",
-          "compassion",
-          "accountability",
-          "reality_contact",
-          "authority_continuity",
-          "consequence_boundary",
-          "runtime_admissibility"
-        ]
-      })
+      body: JSON.stringify(buildGovernancePayload(params))
     });
 
     const text = await res.text();
@@ -96,7 +112,7 @@ export async function evaluateGovernance(params: {
     }
 
     if (!res.ok) {
-      const message = `Governance API returned HTTP ${res.status}.`;
+      const message = `Harmonic API returned HTTP ${res.status}.`;
       if (process.env.STRICT_GOVERNANCE_API === "true") {
         throw new Error(`${message} ${text}`);
       }
@@ -111,9 +127,19 @@ export async function evaluateGovernance(params: {
 
     return {
       available: true,
-      decision: normalizeDecision(json.decision || json.status || json.result),
-      summary: getString(json.summary || json.reason || json.explanation, "External governance evaluation completed."),
-      flags: getFlags(json.flags || json.warnings || json.findings),
+      decision: normalizeDecision(
+        json.decision ||
+          json.recommended_action ||
+          json.recommendation ||
+          json.status ||
+          json.result ||
+          json.outcome
+      ),
+      summary: getString(
+        json.summary || json.reason || json.explanation || json.rationale,
+        "External Harmonic governance evaluation completed."
+      ),
+      flags: getFlags(json.flags || json.warnings || json.findings || json.issues),
       raw: json
     };
   } catch (err) {
@@ -124,7 +150,7 @@ export async function evaluateGovernance(params: {
     return {
       available: false,
       decision: "UNKNOWN",
-      summary: "External governance evaluation failed. Prompt-level constraints were still applied.",
+      summary: "External Harmonic governance evaluation failed. Prompt-level constraints were still applied.",
       flags: ["adapter-error"],
       error: message
     };

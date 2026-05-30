@@ -1,12 +1,42 @@
 import OpenAI from "openai";
 
-export function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is required. Add it to .env.local.");
+function getGatewayConfig(): { apiKey: string; baseURL?: string; model: string; providerLabel: string } {
+  const vercelGatewayKey = process.env.VERCEL_AI_GATEWAY_API_KEY;
+  if (vercelGatewayKey) {
+    return {
+      apiKey: vercelGatewayKey,
+      baseURL: process.env.VERCEL_AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+      model: process.env.VERCEL_AI_GATEWAY_MODEL || process.env.OPENAI_MODEL || "openai/gpt-4.1-mini",
+      providerLabel: "Vercel AI Gateway"
+    };
   }
 
-  return new OpenAI({ apiKey });
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (!openAiKey) {
+    throw new Error("Add VERCEL_AI_GATEWAY_API_KEY or OPENAI_API_KEY to your environment variables.");
+  }
+
+  return {
+    apiKey: openAiKey,
+    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+    providerLabel: "OpenAI"
+  };
+}
+
+export function getModelName(): string {
+  return getGatewayConfig().model;
+}
+
+export function getProviderLabel(): string {
+  return getGatewayConfig().providerLabel;
+}
+
+export function getOpenAIClient(): OpenAI {
+  const config = getGatewayConfig();
+  return new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseURL
+  });
 }
 
 export async function callSameLlm(params: {
@@ -15,7 +45,7 @@ export async function callSameLlm(params: {
   temperature?: number;
 }): Promise<string> {
   const client = getOpenAIClient();
-  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const model = getModelName();
 
   const completion = await client.chat.completions.create({
     model,
