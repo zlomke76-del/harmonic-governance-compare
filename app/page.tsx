@@ -59,10 +59,10 @@ const MODEL_OPTIONS = [
   { id: "openai/gpt-4.1", label: "GPT-4.1", provider: "OpenAI", note: "Stronger reasoning" },
   { id: "anthropic/claude-sonnet-5", label: "Claude Sonnet 5", provider: "Anthropic", note: "Routed through Vercel AI Gateway" },
   { id: "anthropic/claude-opus-4.8", label: "Claude Opus 4.8", provider: "Anthropic", note: "Routed through Vercel AI Gateway" },
-  { id: "google/gemini-3.1-flash", label: "Gemini 3.1 Flash", provider: "Google", note: "Routed through Vercel AI Gateway" },
+  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash", provider: "Google", note: "Routed through Vercel AI Gateway" },
   { id: "xai/grok-4.3", label: "Grok 4.3", provider: "xAI", note: "Routed through Vercel AI Gateway" },
   { id: "meta/llama-4-maverick", label: "Llama 4 Maverick", provider: "Meta", note: "Routed through Vercel AI Gateway" },
-  { id: "mistral/mistral-large-latest", label: "Mistral Large", provider: "Mistral", note: "Routed through Vercel AI Gateway" }
+  { id: "mistral/mistral-large-3", label: "Mistral Large 3", provider: "Mistral", note: "Routed through Vercel AI Gateway" }
 ];
 
 function decisionText(decision: GovernanceDecision): string {
