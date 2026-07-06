@@ -16,7 +16,8 @@ const RequestSchema = z.object({
   prompt: z.string().min(1).max(12000),
   scenario: z.string().min(1).max(200).default("general"),
   includeHarmonicOnly: z.boolean().default(true),
-  temperature: z.number().min(0).max(1).default(0.2)
+  temperature: z.number().min(0).max(1).default(0.2),
+  model: z.string().min(1).max(160).optional()
 });
 
 const laneConfig: Record<LaneName, { title: string; system: string }> = {
@@ -39,13 +40,15 @@ async function runLane(params: {
   prompt: string;
   scenario: string;
   temperature: number;
+  model?: string;
 }): Promise<LaneResult> {
   const started = Date.now();
   const config = laneConfig[params.lane];
   const response = await callSameLlm({
     system: config.system,
     user: params.prompt,
-    temperature: params.temperature
+    temperature: params.temperature,
+    model: params.model
   });
   const evaluation = await evaluateGovernance({
     lane: params.lane,
@@ -77,7 +80,8 @@ export async function POST(req: Request) {
           lane,
           prompt: parsed.prompt,
           scenario: parsed.scenario,
-          temperature: parsed.temperature
+          temperature: parsed.temperature,
+          model: parsed.model
         })
       )
     );
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
     const payload: CompareResponse = {
       prompt: parsed.prompt,
       scenario: parsed.scenario,
-      model: `${getProviderLabel()} · ${getModelName()}`,
+      model: `${getProviderLabel()} · ${getModelName(parsed.model)}`,
       generatedAt: new Date().toISOString(),
       lanes: results
     };
