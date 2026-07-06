@@ -1,54 +1,43 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./styles.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://studio.solace-harmonic.com"),
-
-  title: {
-    default: "Harmonic",
-    template: "%s | Harmonic",
-  },
-
+  title: "Harmonic Governance Compare",
   description:
-    "Govern AI execution before consequence. Runtime constitutional governance for AI agents, workflows, and autonomous systems.",
-
-  applicationName: "Harmonic",
-
+    "Raw LLM vs Harmonic vs Harmonic + Governance comparison harness for AI execution governance.",
+  applicationName: "Harmonic Governance Compare",
   icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" },
-    ],
-    shortcut: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg",
   },
-
   openGraph: {
-    title: "Harmonic",
+    title: "Harmonic Governance Compare",
     description:
-      "Govern AI execution before consequence.",
-    images: ["/og-image.png"],
+      "Compare Raw LLM, Harmonic, and Harmonic + Governance execution behavior before AI systems act.",
+    url: "https://studio.solace-harmonic.com",
+    siteName: "Harmonic",
+    type: "website",
   },
-
   twitter: {
-    card: "summary_large_image",
-    title: "Harmonic",
+    card: "summary",
+    title: "Harmonic Governance Compare",
     description:
-      "Govern AI execution before consequence.",
-    images: ["/og-image.png"],
+      "Compare Raw LLM, Harmonic, and Harmonic + Governance execution behavior before AI systems act.",
   },
-
   robots: {
     index: true,
     follow: true,
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#0b1220",
+};
+
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>{children}</body>
