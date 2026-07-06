@@ -280,14 +280,34 @@ function decisionFromArtifact(json: Record<string, unknown>): GovernanceDecision
   const executionBoundary = asRecord(json.execution_boundary);
   const responseBinding = asRecord(json.response_binding);
 
-  const direct = normalizeDecision(
+  // V68: The governed execution binding is the authoritative UI source of truth.
+  // Do not allow primitive severity, package outcome, or local heuristics to upgrade
+  // ESCALATE into BLOCK after the binding has already resolved the execution mode.
+  const bindingDecision = normalizeDecision(
+    firstPresent(
+      responseBinding?.final_decision,
+      responseBinding?.decision_label,
+      responseBinding?.mode,
+      responseBinding?.runtime_action,
+      responseBinding?.execution_action
+    )
+  );
+
+  if (bindingDecision !== "UNKNOWN") {
+    return bindingDecision;
+  }
+
+  if (executionBoundary) {
+    if (executionBoundary.should_block_execution === true) return "BLOCK";
+    if (executionBoundary.requires_escalation === true) return "ESCALATE";
+    if (executionBoundary.requires_constraint === true) return "CONSTRAIN";
+    if (executionBoundary.should_execute === true) return "ALLOW";
+  }
+
+  return normalizeDecision(
     firstPresent(
       json.final_decision,
       json.decision_label,
-      responseBinding?.final_decision,
-      responseBinding?.decision_label,
-      responseBinding?.execution_action,
-      responseBinding?.mode,
       executionBoundary?.final_decision,
       executionBoundary?.decision_label,
       executionBoundary?.action,
@@ -302,17 +322,6 @@ function decisionFromArtifact(json: Record<string, unknown>): GovernanceDecision
       asRecord(json.runtime_admissibility)?.action
     )
   );
-
-  const boundaryDecision = executionBoundary
-    ? mostRestrictiveDecision(
-        executionBoundary.should_block_execution === true ? "BLOCK" : "UNKNOWN",
-        executionBoundary.requires_escalation === true ? "ESCALATE" : "UNKNOWN",
-        executionBoundary.requires_constraint === true ? "CONSTRAIN" : "UNKNOWN",
-        executionBoundary.should_execute === true ? "ALLOW" : "UNKNOWN"
-      )
-    : "UNKNOWN";
-
-  return mostRestrictiveDecision(direct, boundaryDecision);
 }
 
 function primitiveLabel(key: string): string {
@@ -592,14 +601,19 @@ export async function evaluateGovernance(params: {
     }
 
     const primitiveResults = parsePrimitiveResults(json);
+    const artifactDecision = decisionFromArtifact(json);
+    const decision =
+      params.lane === "harmonic_governance" && artifactDecision !== "UNKNOWN"
+        ? artifactDecision
+        : mostRestrictiveDecision(
+            artifactDecision,
+            decisionFromPrimitiveResults(primitiveResults),
+            params.lane === "harmonic_governance" ? decisionFromExecutionContext(classifyExecutionContext(params)) : "UNKNOWN"
+          );
 
     return {
       available: true,
-      decision: mostRestrictiveDecision(
-        decisionFromArtifact(json),
-        decisionFromPrimitiveResults(primitiveResults),
-        params.lane === "harmonic_governance" ? decisionFromExecutionContext(classifyExecutionContext(params)) : "UNKNOWN"
-      ),
+      decision,
       summary: summarizeResponse(
         json,
         params.lane === "harmonic"
