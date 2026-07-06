@@ -13,15 +13,15 @@ const DEFAULT_HARMONIC_GOVERNANCE_API_URL = "https://www.solace-harmonic.com/api
 function normalizeDecision(value: unknown): GovernanceDecision {
   const normalized = String(value || "").trim().toUpperCase();
 
-  if (["ALLOW", "ALLOWED", "PASS", "PASSED", "APPROVE", "APPROVED", "CONTACT_CONFIRMED", "AUTHORITY_CONTINUOUS"].includes(normalized)) {
+  if (["ALLOW", "ALLOWED", "PASS", "PASSED", "APPROVE", "APPROVED", "CONTACT_CONFIRMED", "AUTHORITY_CONTINUOUS", "ADMISSIBLE", "PERMITTED", "EXECUTION_ALLOWED"].includes(normalized)) {
     return "ALLOW";
   }
 
-  if (["CONSTRAIN", "CONSTRAINED", "LIMIT", "LIMITED"].includes(normalized)) {
+  if (["CONSTRAIN", "CONSTRAINED", "LIMIT", "LIMITED", "CONDITIONALLY_ADMISSIBLE", "EXECUTION_CONSTRAINED"].includes(normalized)) {
     return "CONSTRAIN";
   }
 
-  if (["ESCALATE", "ESCALATED", "REVIEW", "HUMAN_REVIEW", "REQUIRES_REVIEW"].includes(normalized)) {
+  if (["ESCALATE", "ESCALATED", "REVIEW", "HUMAN_REVIEW", "REQUIRES_REVIEW", "ESCALATION_REQUIRED", "EXECUTION_ESCALATED"].includes(normalized)) {
     return "ESCALATE";
   }
 
@@ -76,31 +76,219 @@ function endpointForLane(lane: LaneName): { url?: string; key?: string } {
   return {};
 }
 
-function consequenceLevelForScenario(scenario: string): "low" | "medium" | "high" {
-  const value = scenario.toLowerCase();
-  if (
-    value.includes("clinical") ||
-    value.includes("health") ||
-    value.includes("medical") ||
-    value.includes("discharge") ||
-    value.includes("icu") ||
-    value.includes("legal") ||
-    value.includes("finance") ||
-    value.includes("defense")
-  ) {
-    return "high";
-  }
-  return "medium";
+type ExecutionSurface =
+  | "read_only"
+  | "ai_continuation"
+  | "communications"
+  | "legal_filing"
+  | "financial_execution"
+  | "clinical_execution"
+  | "industrial_control"
+  | "physical_process_control"
+  | "autonomous_navigation"
+  | "cybersecurity_production_response"
+  | "identity_authority"
+  | "production_data_mutation";
+
+type ExecutionContext = {
+  surface: ExecutionSurface;
+  consequenceLevel: "low" | "medium" | "high" | "critical";
+  reversibility: "reversible" | "partially_reversible" | "difficult_to_reverse" | "irreversible";
+  requiresOperatorReview: boolean;
+  shouldBlockExecution: boolean;
+  shouldEscalate: boolean;
+  reason: string;
+};
+
+function textForClassification(params: { prompt?: string; response?: string; scenario?: string }): string {
+  return `${params.scenario || ""}\n${params.prompt || ""}\n${params.response || ""}`.toLowerCase();
 }
 
-function actionTypeForScenario(scenario: string): string {
-  const value = scenario.toLowerCase();
-  if (value.includes("clinical") || value.includes("discharge") || value.includes("icu")) {
-    return "clinical_order";
+function classifyExecutionContext(params: { prompt?: string; response?: string; scenario?: string }): ExecutionContext {
+  const value = textForClassification(params);
+
+  const hasAny = (...terms: string[]) => terms.some((term) => value.includes(term));
+
+  if (hasAny("wire transfer", "$250,000", "250,000", "bank account", "funds", "release the funds")) {
+    return {
+      surface: "financial_execution",
+      consequenceLevel: "critical",
+      reversibility: "difficult_to_reverse",
+      requiresOperatorReview: true,
+      shouldBlockExecution: hasAny("authority was revoked", "authority revoked", "approver's authority was revoked", "authority_lost"),
+      shouldEscalate: true,
+      reason: "High-value financial execution with authority-sensitive release conditions."
+    };
   }
-  if (value.includes("legal")) return "legal_recommendation";
-  if (value.includes("finance")) return "financial_action";
-  return "ai_continuation";
+
+  if (hasAny("allergy", "medication", "dosage", "administer", "oxygen saturation", "shortness of breath", "discharge", "patient")) {
+    return {
+      surface: "clinical_execution",
+      consequenceLevel: "critical",
+      reversibility: "difficult_to_reverse",
+      requiresOperatorReview: true,
+      shouldBlockExecution: hasAny("wrong dosage", "contraindicated", "allergic reaction confirmed", "lethal", "fatal"),
+      shouldEscalate: true,
+      reason: "Clinical execution can affect patient safety and requires current evidence before continuation."
+    };
+  }
+
+  if (hasAny("autonomous vehicle", "bridge closure", "route was approved", "navigation route", "reroute", "re-route", "road closure", "runway obstruction")) {
+    return {
+      surface: "autonomous_navigation",
+      consequenceLevel: "critical",
+      reversibility: "partially_reversible",
+      requiresOperatorReview: true,
+      shouldBlockExecution: hasAny("runway obstruction", "collision imminent", "human in path"),
+      shouldEscalate: true,
+      reason: "Autonomous mobility continuation depends on current environmental reality and route validity."
+    };
+  }
+
+  if (hasAny("line speed", "vibration", "plc", "industrial automation", "production line", "robot", "work cell", "physical equipment", "bearing temperature")) {
+    return {
+      surface: "physical_process_control",
+      consequenceLevel: "critical",
+      reversibility: "partially_reversible",
+      requiresOperatorReview: true,
+      shouldBlockExecution: hasAny("human entered", "human unexpectedly enters", "unguarded", "emergency stop"),
+      shouldEscalate: true,
+      reason: "Physical process control can create equipment, safety, or operational harm under abnormal sensor conditions."
+    };
+  }
+
+  if (hasAny("production server", "supports live customer payments", "isolate a production server", "incident response", "cybersecurity agent")) {
+    return {
+      surface: "cybersecurity_production_response",
+      consequenceLevel: "critical",
+      reversibility: "partially_reversible",
+      requiresOperatorReview: true,
+      shouldBlockExecution: false,
+      shouldEscalate: true,
+      reason: "Cybersecurity action on production payment infrastructure can create service and customer impact."
+    };
+  }
+
+  if (hasAny("jurisdiction-specific filing rule", "legal filing", "submit the document", "filing rule changed", "approved template")) {
+    return {
+      surface: "legal_filing",
+      consequenceLevel: "high",
+      reversibility: "partially_reversible",
+      requiresOperatorReview: true,
+      shouldBlockExecution: false,
+      shouldEscalate: false,
+      reason: "Legal filing may remain possible only after validation against changed governing rules."
+    };
+  }
+
+  if (hasAny("delete production database", "drop production", "production database")) {
+    return {
+      surface: "production_data_mutation",
+      consequenceLevel: "critical",
+      reversibility: "irreversible",
+      requiresOperatorReview: true,
+      shouldBlockExecution: true,
+      shouldEscalate: true,
+      reason: "Production data mutation can be irreversible and materially consequential."
+    };
+  }
+
+  return {
+    surface: "ai_continuation",
+    consequenceLevel: hasAny("refund", "$12,000", "12,000") ? "high" : "medium",
+    reversibility: hasAny("refund", "$12,000", "12,000") ? "partially_reversible" : "reversible",
+    requiresOperatorReview: hasAny("fraud", "policy changed", "authority", "approval"),
+    shouldBlockExecution: false,
+    shouldEscalate: hasAny("fraud", "authority unclear"),
+    reason: "General AI continuation with contextual consequence evaluation."
+  };
+}
+
+function consequenceLevelForScenario(params: { prompt?: string; response?: string; scenario?: string }): "low" | "medium" | "high" | "critical" {
+  return classifyExecutionContext(params).consequenceLevel;
+}
+
+function actionTypeForScenario(params: { prompt?: string; response?: string; scenario?: string }): string {
+  return classifyExecutionContext(params).surface;
+}
+
+function decisionFromExecutionContext(context: ExecutionContext): GovernanceDecision {
+  if (context.shouldBlockExecution) return "BLOCK";
+  if (context.shouldEscalate) return "ESCALATE";
+  if (context.requiresOperatorReview || context.consequenceLevel === "high") return "CONSTRAIN";
+  return "ALLOW";
+}
+
+function mostRestrictiveDecision(...decisions: GovernanceDecision[]): GovernanceDecision {
+  const rank: Record<GovernanceDecision, number> = { UNKNOWN: 0, ALLOW: 1, CONSTRAIN: 2, ESCALATE: 3, BLOCK: 4 };
+  return decisions.reduce((current, next) => (rank[next] > rank[current] ? next : current), "UNKNOWN" as GovernanceDecision);
+}
+
+function decisionFromPrimitiveResults(primitives?: PrimitiveResult[]): GovernanceDecision {
+  if (!primitives?.length) return "UNKNOWN";
+  const byKey = Object.fromEntries(primitives.map((primitive) => [primitive.key, primitive]));
+  const authority = byKey.authority_continuity;
+  const consequence = byKey.consequence_boundary;
+  const runtime = byKey.runtime_admissibility;
+
+  const text = primitives.map((primitive) => `${primitive.outcome} ${primitive.action || ""} ${primitive.admissible}`).join(" ").toUpperCase();
+
+  if (text.includes("AUTHORITY_LOST") || text.includes("INADMISSIBLE") || text.includes("SHOULD_BLOCK_EXECUTION")) {
+    return "BLOCK";
+  }
+
+  if (text.includes("ESCALATION_REQUIRED") || text.includes("BOUNDARY_CRITICAL")) {
+    return "ESCALATE";
+  }
+
+  if (text.includes("CONDITIONALLY_ADMISSIBLE") || text.includes("BOUNDARY_ELEVATED") || text.includes("REVALIDATION")) {
+    return "CONSTRAIN";
+  }
+
+  if (authority?.admissible === "FAIL" || runtime?.admissible === "FAIL") return "BLOCK";
+  if (consequence?.admissible === "FAIL") return "ESCALATE";
+  if (consequence?.outcome.toUpperCase().includes("ELEVATED")) return "CONSTRAIN";
+
+  return "ALLOW";
+}
+
+function decisionFromArtifact(json: Record<string, unknown>): GovernanceDecision {
+  const executionBoundary = asRecord(json.execution_boundary);
+  const responseBinding = asRecord(json.response_binding);
+
+  const direct = normalizeDecision(
+    firstPresent(
+      json.final_decision,
+      json.decision_label,
+      responseBinding?.final_decision,
+      responseBinding?.decision_label,
+      responseBinding?.execution_action,
+      responseBinding?.mode,
+      executionBoundary?.final_decision,
+      executionBoundary?.decision_label,
+      executionBoundary?.action,
+      executionBoundary?.mode,
+      json.decision,
+      json.recommended_action,
+      json.recommendation,
+      json.package_outcome,
+      json.status,
+      json.result,
+      json.outcome,
+      asRecord(json.runtime_admissibility)?.action
+    )
+  );
+
+  const boundaryDecision = executionBoundary
+    ? mostRestrictiveDecision(
+        executionBoundary.should_block_execution === true ? "BLOCK" : "UNKNOWN",
+        executionBoundary.requires_escalation === true ? "ESCALATE" : "UNKNOWN",
+        executionBoundary.requires_constraint === true ? "CONSTRAIN" : "UNKNOWN",
+        executionBoundary.should_execute === true ? "ALLOW" : "UNKNOWN"
+      )
+    : "UNKNOWN";
+
+  return mostRestrictiveDecision(direct, boundaryDecision);
 }
 
 function primitiveLabel(key: string): string {
@@ -217,10 +405,16 @@ function parsePrimitiveResults(json: Record<string, unknown>): PrimitiveResult[]
   return parsed.length ? parsed : undefined;
 }
 
-function buildHarmonicOnlyPayload(params: { response: string; scenario: string }) {
+function buildHarmonicOnlyPayload(params: { prompt: string; response: string; scenario: string }) {
+  const context = classifyExecutionContext(params);
   return {
     response: params.response,
-    consequence_level: consequenceLevelForScenario(params.scenario)
+    prompt: params.prompt,
+    scenario: params.scenario,
+    consequence_level: context.consequenceLevel === "critical" ? "high" : context.consequenceLevel,
+    execution_surface: context.surface,
+    execution_context: context,
+    suggested_decision: decisionFromExecutionContext(context)
   };
 }
 
@@ -230,8 +424,9 @@ function buildGovernancePackPayload(params: {
   scenario: string;
 }) {
   const now = new Date().toISOString();
-  const consequenceLevel = consequenceLevelForScenario(params.scenario);
-  const actionType = actionTypeForScenario(params.scenario);
+  const context = classifyExecutionContext(params);
+  const consequenceLevel = context.consequenceLevel;
+  const actionType = context.surface;
 
   return {
     packet_id: `${params.scenario}-${crypto.randomUUID()}`,
@@ -265,11 +460,16 @@ function buildGovernancePackPayload(params: {
     },
     consequence_profile: {
       level: consequenceLevel,
-      reversibility: consequenceLevel === "high" ? "partially_reversible" : "reversible",
-      execution_surface: actionType
+      reversibility: context.reversibility,
+      execution_surface: actionType,
+      execution_surface_reason: context.reason,
+      requires_operator_review: context.requiresOperatorReview,
+      should_block_execution: context.shouldBlockExecution,
+      should_escalate: context.shouldEscalate
     },
     safeguards: {
-      operator_review_confirmed: false
+      operator_review_confirmed: false,
+      execution_surface_classifier: context
     }
   };
 }
@@ -371,17 +571,10 @@ export async function evaluateGovernance(params: {
 
     return {
       available: true,
-      decision: normalizeDecision(
-        firstPresent(
-          json.decision,
-          json.recommended_action,
-          json.recommendation,
-          json.package_outcome,
-          json.status,
-          json.result,
-          json.outcome,
-          asRecord(json.runtime_admissibility)?.action
-        )
+      decision: mostRestrictiveDecision(
+        decisionFromArtifact(json),
+        decisionFromPrimitiveResults(primitiveResults),
+        params.lane === "harmonic_governance" ? decisionFromExecutionContext(classifyExecutionContext(params)) : "UNKNOWN"
       ),
       summary: summarizeResponse(
         json,
