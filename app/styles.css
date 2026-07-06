@@ -1365,3 +1365,24 @@ pre {
     margin-top: 6px;
   }
 }
+
+.scenarioChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.scenarioChips em {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(141, 213, 255, 0.22);
+  background: rgba(141, 213, 255, 0.07);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
