@@ -2074,3 +2074,143 @@ pre {
   }
   .architectureStrip > div:first-child { border-top: 0; }
 }
+
+/* V62 continuity-across-transactions demo layer */
+.continuityPanel {
+  border: 1px solid rgba(141, 213, 255, 0.26);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(245, 197, 66, 0.11), transparent 36%),
+    rgba(255,255,255,0.032);
+  padding: 14px;
+  overflow: hidden;
+}
+.continuityHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+.continuityHeader h4 {
+  margin: 4px 0 6px;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+.continuityHeader p,
+.timelineEvent p,
+.continuityThesis {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.42;
+}
+.staleSeal {
+  min-width: 120px;
+  border: 1px solid rgba(255, 209, 102, 0.28);
+  border-radius: 14px;
+  padding: 11px 12px;
+  background: rgba(255, 209, 102, 0.075);
+  text-align: center;
+}
+.staleSeal span {
+  display: block;
+  color: var(--soft);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 5px;
+}
+.staleSeal strong {
+  font-size: 20px;
+}
+.timelineRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  position: relative;
+}
+.timelineEvent {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(0,0,0,0.18);
+  padding: 12px;
+  min-height: 154px;
+  animation: continuityIn 360ms ease both;
+  animation-delay: var(--delay);
+}
+.timelineEvent::after {
+  content: "";
+  position: absolute;
+  top: 29px;
+  left: calc(100% + 2px);
+  width: 10px;
+  height: 1px;
+  background: var(--border-strong);
+}
+.timelineEvent:last-child::after { display: none; }
+.timelineMarker {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 900;
+  margin-bottom: 10px;
+  background: rgba(141, 213, 255, 0.08);
+}
+.timelineEvent span {
+  display: block;
+  color: var(--soft);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.timelineEvent strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.timelineEvent.changed {
+  border-color: rgba(255, 209, 102, 0.38);
+  background: rgba(255, 209, 102, 0.075);
+}
+.timelineEvent.changed .timelineMarker {
+  color: var(--gold);
+  border-color: rgba(255, 209, 102, 0.42);
+  background: rgba(255, 209, 102, 0.1);
+}
+.timelineEvent.governed {
+  border-color: rgba(141, 213, 255, 0.36);
+  background: rgba(141, 213, 255, 0.055);
+}
+.continuityPanel.decisionEscalate .timelineEvent.governed,
+.continuityPanel.decisionBlock .timelineEvent.governed {
+  border-color: rgba(255, 124, 124, 0.36);
+}
+.continuityThesis {
+  margin-top: 11px;
+  border: 1px solid rgba(245, 197, 66, 0.22);
+  border-radius: 12px;
+  background: rgba(245, 197, 66, 0.055);
+  padding: 10px 12px;
+  color: #ffe29a;
+  font-weight: 800;
+}
+@keyframes continuityIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 1180px) {
+  .timelineRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .timelineEvent::after { display: none; }
+}
+@media (max-width: 760px) {
+  .continuityHeader,
+  .timelineRail { grid-template-columns: 1fr; }
+  .staleSeal { text-align: left; }
+}

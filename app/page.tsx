@@ -14,6 +14,14 @@ type ScanStep = {
   detail: string;
 };
 
+type ContinuityEvent = {
+  marker: string;
+  title: string;
+  timestamp: string;
+  detail: string;
+  state: "valid" | "changed" | "requested" | "governed";
+};
+
 type ScenarioOption = {
   id: string;
   label: string;
@@ -706,6 +714,120 @@ function outcomeGlyph(primitive: PrimitiveResult): string {
   return "?";
 }
 
+function continuityGapMs(prompt: string): number {
+  const text = prompt.toLowerCase();
+  const numeric = text.match(/(\d+)\s*(second|seconds|minute|minutes|hour|hours)/);
+  if (numeric) {
+    const amount = Number(numeric[1]);
+    const unit = numeric[2];
+    if (unit.startsWith("second")) return amount * 1000;
+    if (unit.startsWith("minute")) return amount * 60 * 1000;
+    if (unit.startsWith("hour")) return amount * 60 * 60 * 1000;
+  }
+  if (text.includes("moments") || text.includes("seconds")) return 30 * 1000;
+  if (text.includes("minutes")) return 5 * 60 * 1000;
+  return 30 * 1000;
+}
+
+function changedCondition(result: CompareResponse, primitives: PrimitiveResult[]): string {
+  const prompt = result.prompt.toLowerCase();
+  const scenario = result.scenario.toLowerCase();
+  const failedLabels = primitives.filter((primitive) => primitive.admissible === "FAIL").map((primitive) => primitive.label);
+
+  if (prompt.includes("allergy") || scenario.includes("allergy")) return "Patient allergy evidence changed after the recommendation was formed.";
+  if (prompt.includes("blood type") || scenario.includes("blood")) return "Life-safety clinical evidence changed before action.";
+  if (prompt.includes("authority") || prompt.includes("revoked") || scenario.includes("revoked")) return "Execution authority changed before release.";
+  if (prompt.includes("bridge") || prompt.includes("closure")) return "Operational reality changed after route approval.";
+  if (prompt.includes("alarm") || prompt.includes("overheat") || scenario.includes("transformer")) return "Live equipment-health evidence changed before switching.";
+  if (failedLabels.length) return `${failedLabels.join(" and ")} changed before action.`;
+  return "Execution conditions changed between recommendation and action.";
+}
+
+function continuityStatus(decision: GovernanceDecision): { label: string; detail: string } {
+  if (decision === "ALLOW") return { label: "Continuity intact", detail: "The recommendation remains current enough for the evaluated execution state." };
+  if (decision === "CONSTRAIN") return { label: "Continuity narrowed", detail: "The chain from recommendation to action remains usable only inside constraints." };
+  if (decision === "ESCALATE") return { label: "Continuity broken", detail: "The recommendation may be sensible, but continuation authority must transfer before action." };
+  if (decision === "BLOCK") return { label: "Continuity collapsed", detail: "The recommendation cannot be executed under the current runtime state." };
+  return { label: "Continuity pending", detail: "Run an evaluation to test whether the recommendation survived to execution." };
+}
+
+function continuityTimeline(result: CompareResponse, decisionLane?: LaneResult): ContinuityEvent[] {
+  const primitives = decisionLane?.evaluation.primitiveResults ?? [];
+  const decision = decisionLane?.evaluation.decision ?? "UNKNOWN";
+  const evaluatedAt = new Date(result.generatedAt);
+  const gapMs = continuityGapMs(result.prompt);
+  const recommendedAt = new Date(evaluatedAt.getTime() - gapMs);
+  const changedAt = new Date(recommendedAt.getTime() + Math.max(1000, Math.floor(gapMs * 0.55)));
+  const requestedAt = new Date(evaluatedAt.getTime() - Math.max(1000, Math.floor(gapMs * 0.08)));
+
+  return [
+    {
+      marker: "T0",
+      title: "Recommendation generated",
+      timestamp: recommendedAt.toLocaleTimeString(),
+      detail: "The LLM recommendation is formed against the evidence and authority available at that moment.",
+      state: "valid"
+    },
+    {
+      marker: "T1",
+      title: "Continuity condition changed",
+      timestamp: changedAt.toLocaleTimeString(),
+      detail: changedCondition(result, primitives),
+      state: "changed"
+    },
+    {
+      marker: "T2",
+      title: "Execution requested",
+      timestamp: requestedAt.toLocaleTimeString(),
+      detail: "The system is no longer asking whether the answer was reasonable; it is asking whether action may still proceed.",
+      state: "requested"
+    },
+    {
+      marker: "T3",
+      title: `${decisionText(decision)} bound by runtime`,
+      timestamp: evaluatedAt.toLocaleTimeString(),
+      detail: continuityStatus(decision).detail,
+      state: "governed"
+    }
+  ];
+}
+
+function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse; decisionLane?: LaneResult }) {
+  const decision = decisionLane?.evaluation.decision ?? "UNKNOWN";
+  const status = continuityStatus(decision);
+  const events = continuityTimeline(result, decisionLane);
+  const elapsedSeconds = Math.max(1, Math.round(continuityGapMs(result.prompt) / 1000));
+
+  return (
+    <section className={`continuityPanel ${decisionClass(decision)}`} aria-label="Continuity timeline">
+      <div className="continuityHeader">
+        <div>
+          <span className="consoleLabel">Continuity Timeline</span>
+          <h4>{status.label}</h4>
+          <p>The one-shot answer can be correct. Harmonic tests whether that answer survived the transition from recommendation to execution.</p>
+        </div>
+        <div className="staleSeal">
+          <span>Continuity gap</span>
+          <strong>{elapsedSeconds}s</strong>
+        </div>
+      </div>
+      <div className="timelineRail">
+        {events.map((event, index) => (
+          <div key={event.marker} className={`timelineEvent ${event.state}`} style={{ "--delay": `${index * 120}ms` } as CSSProperties}>
+            <div className="timelineMarker">{event.marker}</div>
+            <div>
+              <span>{event.timestamp}</span>
+              <strong>{event.title}</strong>
+              <p>{event.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="continuityThesis">The recommendation was not necessarily wrong. It became stale because continuity changed before execution.</p>
+    </section>
+  );
+}
+
 function getRawRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -731,7 +853,7 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     { label: "Governance Pack", value: String(raw.version || raw.governance_pack_version || raw.package_version || "constitutional-runtime-vNext") },
     { label: "Execution Binding", value: lane ? `${lane.title} → ${decisionText(lane.evaluation.decision)}` : "Pending" },
     { label: "Primitive Hashes", value: primitiveHashes },
-    { label: "Artifact Lineage", value: "User Input → LLM Recommendation → Harmonic Stabilization → Constitutional Runtime → Execution Decision" }
+    { label: "Artifact Lineage", value: "T0 Recommendation → T1 Continuity Change → T2 Execution Request → T3 Constitutional Runtime → Execution Decision" }
   ];
 
   return (
@@ -808,6 +930,8 @@ function ExecutionConsole({ result }: { result: CompareResponse }) {
       </section>
 
       <RecommendationDecisionSplit rawLane={rawLane} decisionLane={decisionLane} result={result} />
+
+      <ContinuityTimeline result={result} decisionLane={decisionLane} />
 
       <section className="primitiveScanPanel executivePrimitives">
         <div className="consoleSectionHeader">
