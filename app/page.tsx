@@ -19,7 +19,8 @@ type ContinuityEvent = {
   title: string;
   timestamp: string;
   detail: string;
-  state: "valid" | "changed" | "requested" | "governed";
+  state: "current" | "changed" | "stale" | "governed";
+  status: string;
 };
 
 type ScenarioOption = {
@@ -743,12 +744,40 @@ function changedCondition(result: CompareResponse, primitives: PrimitiveResult[]
   return "Execution conditions changed between recommendation and action.";
 }
 
-function continuityStatus(decision: GovernanceDecision): { label: string; detail: string } {
-  if (decision === "ALLOW") return { label: "Continuity intact", detail: "The recommendation remains current enough for the evaluated execution state." };
-  if (decision === "CONSTRAIN") return { label: "Continuity narrowed", detail: "The chain from recommendation to action remains usable only inside constraints." };
-  if (decision === "ESCALATE") return { label: "Continuity broken", detail: "The recommendation may be sensible, but continuation authority must transfer before action." };
-  if (decision === "BLOCK") return { label: "Continuity collapsed", detail: "The recommendation cannot be executed under the current runtime state." };
-  return { label: "Continuity pending", detail: "Run an evaluation to test whether the recommendation survived to execution." };
+function continuityStatus(decision: GovernanceDecision): { label: string; detail: string; recommendationState: string } {
+  if (decision === "ALLOW") {
+    return {
+      label: "Execution Continuity Intact",
+      detail: "The recommendation remains current enough for the evaluated execution state.",
+      recommendationState: "CURRENT"
+    };
+  }
+  if (decision === "CONSTRAIN") {
+    return {
+      label: "Execution Continuity Narrowed",
+      detail: "The recommendation survived only inside bounded constraints.",
+      recommendationState: "AT RISK"
+    };
+  }
+  if (decision === "ESCALATE") {
+    return {
+      label: "Execution Continuity Broken",
+      detail: "The recommendation may still be sensible, but continuation authority must transfer before action.",
+      recommendationState: "STALE"
+    };
+  }
+  if (decision === "BLOCK") {
+    return {
+      label: "Execution Continuity Broken",
+      detail: "The recommendation cannot be executed under the current runtime state.",
+      recommendationState: "STALE"
+    };
+  }
+  return {
+    label: "Execution Continuity Pending",
+    detail: "Run an evaluation to test whether the recommendation survived to execution.",
+    recommendationState: "PENDING"
+  };
 }
 
 function continuityTimeline(result: CompareResponse, decisionLane?: LaneResult): ContinuityEvent[] {
@@ -763,31 +792,35 @@ function continuityTimeline(result: CompareResponse, decisionLane?: LaneResult):
   return [
     {
       marker: "T0",
-      title: "Recommendation generated",
+      title: "Recommendation created",
       timestamp: recommendedAt.toLocaleTimeString(),
-      detail: "The LLM recommendation is formed against the evidence and authority available at that moment.",
-      state: "valid"
+      detail: "The LLM answer is formed against the evidence and authority available at T0.",
+      state: "current",
+      status: "🟢 Current"
     },
     {
       marker: "T1",
       title: "Continuity condition changed",
       timestamp: changedAt.toLocaleTimeString(),
       detail: changedCondition(result, primitives),
-      state: "changed"
+      state: "changed",
+      status: "⚠ Reality changed"
     },
     {
       marker: "T2",
       title: "Execution requested",
       timestamp: requestedAt.toLocaleTimeString(),
       detail: "The system is no longer asking whether the answer was reasonable; it is asking whether action may still proceed.",
-      state: "requested"
+      state: "stale",
+      status: decision === "ALLOW" ? "🟢 Still current" : decision === "CONSTRAIN" ? "🟡 At risk" : "🔴 Stale"
     },
     {
       marker: "T3",
       title: `${decisionText(decision)} bound by runtime`,
       timestamp: evaluatedAt.toLocaleTimeString(),
       detail: continuityStatus(decision).detail,
-      state: "governed"
+      state: "governed",
+      status: `Runtime: ${decisionText(decision)}`
     }
   ];
 }
@@ -806,9 +839,15 @@ function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse;
           <h4>{status.label}</h4>
           <p>The one-shot answer can be correct. Harmonic tests whether that answer survived the transition from recommendation to execution.</p>
         </div>
-        <div className="staleSeal">
-          <span>Continuity gap</span>
-          <strong>{elapsedSeconds}s</strong>
+        <div className="continuitySeals">
+          <div className="staleSeal recommendationSeal">
+            <span>Recommendation Status</span>
+            <strong>{status.recommendationState}</strong>
+          </div>
+          <div className="staleSeal">
+            <span>Continuity gap</span>
+            <strong>{elapsedSeconds}s</strong>
+          </div>
         </div>
       </div>
       <div className="timelineRail">
@@ -817,13 +856,17 @@ function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse;
             <div className="timelineMarker">{event.marker}</div>
             <div>
               <span>{event.timestamp}</span>
+              <em className="timelineStatus">{event.status}</em>
               <strong>{event.title}</strong>
               <p>{event.detail}</p>
             </div>
           </div>
         ))}
       </div>
-      <p className="continuityThesis">The recommendation was not necessarily wrong. It became stale because continuity changed before execution.</p>
+      <div className="continuityThesis">
+        <strong>The recommendation was not necessarily wrong.</strong>
+        <span>It became stale because continuity changed before execution.</span>
+      </div>
     </section>
   );
 }
@@ -853,7 +896,7 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     { label: "Governance Pack", value: String(raw.version || raw.governance_pack_version || raw.package_version || "constitutional-runtime-vNext") },
     { label: "Execution Binding", value: lane ? `${lane.title} → ${decisionText(lane.evaluation.decision)}` : "Pending" },
     { label: "Primitive Hashes", value: primitiveHashes },
-    { label: "Artifact Lineage", value: "T0 Recommendation → T1 Continuity Change → T2 Execution Request → T3 Constitutional Runtime → Execution Decision" }
+    { label: "Artifact Lineage", value: "T0 Recommendation Created → T1 Reality Changed → T2 Execution Requested → T3 Constitutional Runtime → T4 Execution Decision" }
   ];
 
   return (

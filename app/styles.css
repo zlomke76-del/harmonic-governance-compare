@@ -2092,6 +2092,23 @@ pre {
   align-items: start;
   margin-bottom: 12px;
 }
+.continuitySeals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  gap: 8px;
+}
+.recommendationSeal {
+  border-color: rgba(255, 124, 124, 0.32);
+  background: rgba(255, 124, 124, 0.075);
+}
+.decisionAllow .recommendationSeal {
+  border-color: rgba(84, 224, 167, 0.32);
+  background: rgba(84, 224, 167, 0.075);
+}
+.decisionConstrain .recommendationSeal {
+  border-color: rgba(255, 209, 102, 0.32);
+  background: rgba(255, 209, 102, 0.075);
+}
 .continuityHeader h4 {
   margin: 4px 0 6px;
   font-size: 22px;
@@ -2175,9 +2192,45 @@ pre {
   margin-bottom: 6px;
   font-size: 14px;
 }
+.timelineStatus {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 7px;
+  margin: 0 0 7px;
+  color: var(--text);
+  background: rgba(255,255,255,0.045);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
 .timelineEvent.changed {
   border-color: rgba(255, 209, 102, 0.38);
   background: rgba(255, 209, 102, 0.075);
+}
+.timelineEvent.stale {
+  border-color: rgba(255, 124, 124, 0.34);
+  background: rgba(255, 124, 124, 0.072);
+}
+.timelineEvent.stale .timelineMarker {
+  color: #ff9a9a;
+  border-color: rgba(255, 124, 124, 0.42);
+  background: rgba(255, 124, 124, 0.1);
+}
+.decisionAllow .timelineEvent.stale {
+  border-color: rgba(84, 224, 167, 0.34);
+  background: rgba(84, 224, 167, 0.055);
+}
+.decisionAllow .timelineEvent.stale .timelineMarker {
+  color: var(--good);
+  border-color: rgba(84, 224, 167, 0.42);
+  background: rgba(84, 224, 167, 0.1);
+}
+.decisionConstrain .timelineEvent.stale {
+  border-color: rgba(255, 209, 102, 0.34);
+  background: rgba(255, 209, 102, 0.06);
 }
 .timelineEvent.changed .timelineMarker {
   color: var(--gold);
@@ -2196,10 +2249,21 @@ pre {
   margin-top: 11px;
   border: 1px solid rgba(245, 197, 66, 0.22);
   border-radius: 12px;
-  background: rgba(245, 197, 66, 0.055);
-  padding: 10px 12px;
+  background: linear-gradient(90deg, rgba(245, 197, 66, 0.09), rgba(255, 124, 124, 0.055));
+  padding: 12px 13px;
   color: #ffe29a;
-  font-weight: 800;
+}
+.continuityThesis strong,
+.continuityThesis span {
+  display: block;
+}
+.continuityThesis strong {
+  color: var(--text);
+  font-size: 15px;
+  margin-bottom: 3px;
+}
+.continuityThesis span {
+  font-weight: 900;
 }
 @keyframes continuityIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -2211,6 +2275,7 @@ pre {
 }
 @media (max-width: 760px) {
   .continuityHeader,
+  .continuitySeals,
   .timelineRail { grid-template-columns: 1fr; }
   .staleSeal { text-align: left; }
 }
