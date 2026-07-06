@@ -801,10 +801,10 @@ export default function Home() {
         <div className="heroCopy">
           <p className="eyebrow">Internal demo harness</p>
           <h1>
-            Raw LLM vs Harmonic <span>vs Harmonic + Governance</span>
+            Harmonic Execution <span>Governance Console</span>
           </h1>
           <p className="lede">
-            Choose a model, bring a sample or custom scenario, and watch how governance changes what the system is allowed to do before it acts.
+            Model-agnostic execution governance: compare recommendation, stabilization, and constitutional decision before action.
           </p>
         </div>
         <ExecutionDiagram loading={loading} result={result} scanIndex={scanIndex} />
@@ -879,7 +879,7 @@ export default function Home() {
           <label>
             Test prompt
             <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={7} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
           </label>
 
           <label className="checkbox">

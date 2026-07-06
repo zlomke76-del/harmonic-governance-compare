@@ -1394,3 +1394,434 @@ pre {
   font-size: 0.78rem;
   line-height: 1.35;
 }
+
+
+/* V58 one-screen execution console layout */
+@media (min-width: 1181px) {
+  .shell {
+    width: min(1500px, 100%);
+    padding: 18px 34px 22px;
+  }
+
+  .topbar {
+    margin-bottom: 24px;
+  }
+
+  .brandMark > span {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+  }
+
+  .brandMark strong {
+    font-size: 14px;
+  }
+
+  .brandMark small {
+    font-size: 8px;
+  }
+
+  .statusPill {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .heroGrid {
+    grid-template-columns: minmax(420px, 0.82fr) minmax(520px, 1fr);
+    gap: 28px;
+    align-items: end;
+    margin-bottom: 16px;
+  }
+
+  .eyebrow,
+  .diagramLabel {
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: clamp(44px, 4.2vw, 64px);
+    line-height: 0.94;
+    max-width: 680px;
+  }
+
+  .lede {
+    font-size: 15px;
+    line-height: 1.45;
+    margin-top: 14px;
+    max-width: 620px;
+  }
+
+  .executionMap {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .flowRail {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .flowNode {
+    min-height: 74px;
+    border-radius: 15px;
+    gap: 5px;
+  }
+
+  .nodeIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    font-size: 18px;
+  }
+
+  .flowArrow {
+    font-size: 24px;
+  }
+
+  .laneStack {
+    gap: 8px;
+  }
+
+  .pathLane {
+    min-height: 52px;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .laneIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .pathLane strong {
+    font-size: 14px;
+  }
+
+  .pathLane span,
+  .pathLane em {
+    font-size: 12px;
+  }
+
+  .workspace {
+    grid-template-columns: 390px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .panel {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .sectionTitle {
+    margin-bottom: 12px;
+    gap: 10px;
+  }
+
+  .sectionTitle > span,
+  .sectionTitle > div > span {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+
+  .sectionTitle h2 {
+    font-size: 13px;
+  }
+
+  .sectionTitle em {
+    font-size: 11px;
+    max-width: 430px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inputPanel {
+    gap: 10px;
+  }
+
+  .configGrid {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  label {
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  input,
+  textarea,
+  select,
+  .inputPanel select,
+  .inputPanel input,
+  .inputPanel textarea {
+    min-height: 38px;
+    border-radius: 12px;
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+
+  textarea {
+    min-height: 74px;
+    max-height: 96px;
+    line-height: 1.35;
+  }
+
+  .fieldHint,
+  .modelNote {
+    display: none;
+  }
+
+  .scenarioDescription {
+    margin: 2px 0 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .scenarioDescription span {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .scenarioDescription strong {
+    font-size: 13px;
+  }
+
+  .scenarioDescription p {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .scenarioChips {
+    margin-top: 7px;
+    gap: 6px;
+  }
+
+  .scenarioChips em {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .promptTools {
+    margin: -2px 0 4px;
+  }
+
+  .checkbox {
+    font-size: 12px;
+  }
+
+  button {
+    min-height: 38px;
+    border-radius: 12px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+
+  .meta {
+    margin-bottom: 8px;
+    gap: 7px;
+  }
+
+  .meta span {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  .scanPanel {
+    padding: 14px;
+    border-radius: 18px;
+    margin-bottom: 12px;
+  }
+
+  .scanHeader {
+    margin-bottom: 10px;
+    align-items: center;
+  }
+
+  .scanHeader h2 {
+    font-size: 24px;
+  }
+
+  .scanOutcome {
+    min-width: 92px;
+    padding: 8px 11px;
+    font-size: 11px;
+  }
+
+  .scanRows {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .scanRow {
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .scanRow em {
+    grid-column: 1 / -1;
+    justify-self: end;
+    margin-top: -4px;
+  }
+
+  .scanRow strong {
+    font-size: 12px;
+  }
+
+  .scanRow small,
+  .scanRow em {
+    font-size: 10px;
+  }
+
+  .scanDot {
+    width: 9px;
+    height: 9px;
+  }
+
+  .scanFootnote {
+    display: none;
+  }
+
+  .resultGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .resultCard {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .resultCardTop {
+    gap: 9px;
+    margin-bottom: 8px;
+  }
+
+  .laneIcon.large {
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+  }
+
+  .resultCardTop h3 {
+    font-size: 13px;
+  }
+
+  .resultCardTop p {
+    font-size: 10px;
+    margin-top: 2px;
+  }
+
+  .laneBadge {
+    padding: 5px 8px;
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+
+  .decisionBanner {
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .decisionBanner span,
+  .decisionBanner small {
+    font-size: 10px;
+  }
+
+  .decisionBanner strong {
+    font-size: 18px;
+  }
+
+  .outcomeRibbon,
+  .riskBox,
+  .rationaleBox,
+  .responseBox {
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  .outcomeRibbon {
+    margin-bottom: 8px;
+  }
+
+  .outcomeRibbon span,
+  .responseBox span,
+  .rationaleBox span,
+  .riskBox span {
+    font-size: 10px;
+  }
+
+  .responseBox p,
+  .rationaleBox p {
+    font-size: 11px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .riskBox {
+    margin-top: 8px;
+    gap: 7px;
+  }
+
+  .riskBox strong {
+    font-size: 13px;
+  }
+
+  .rationaleBox,
+  .flagStrip,
+  .fullOutput,
+  .rawJson,
+  .primitiveStack,
+  .primitiveSummary {
+    margin-top: 8px;
+  }
+
+  .primitiveSummary {
+    gap: 6px;
+  }
+
+  .primitiveSummaryRow {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .primitiveSummaryRow:nth-child(n + 3) {
+    display: none;
+  }
+
+  .primitiveBadge {
+    min-width: 48px;
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+
+  .fullOutput > summary,
+  .rawJson > summary,
+  .primitiveStack > summary,
+  .primitiveDetail > summary {
+    font-size: 11px;
+  }
+
+  .insightBar {
+    display: none;
+  }
+
+  .emptyState,
+  .loadingState {
+    min-height: 220px;
+    padding: 18px;
+  }
+}
