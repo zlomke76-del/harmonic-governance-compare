@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     const payload: CompareResponse = {
       prompt: parsed.prompt,
       scenario: parsed.scenario,
-      model: `${getProviderLabel()} · ${getModelName(parsed.model)}`,
+      model: `${getProviderLabel(parsed.model)} · ${getModelName(parsed.model)}`,
       generatedAt: new Date().toISOString(),
       lanes: results
     };
