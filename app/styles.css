@@ -975,3 +975,240 @@ pre {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* V32 AI Execution Debugger polish */
+.executionMap.isRunning::after {
+  content: "";
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  top: 152px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(141, 213, 255, 0.92), transparent);
+  animation: flowSweep 1.35s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+@keyframes flowSweep {
+  0% { transform: translateX(-35%); opacity: 0; }
+  25% { opacity: 0.85; }
+  100% { transform: translateX(35%); opacity: 0; }
+}
+
+.flowNode.active,
+.pathLane.active {
+  border-color: color-mix(in srgb, var(--tone, var(--accent)) 62%, var(--border));
+  box-shadow: 0 0 26px color-mix(in srgb, var(--tone, var(--accent)) 18%, transparent);
+}
+
+.inputNode.active,
+.modelNode.active {
+  border-color: rgba(141, 213, 255, 0.84);
+}
+
+.pathLane.active .laneIcon,
+.flowNode.active .nodeIcon {
+  animation: nodeWake 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes nodeWake {
+  from { filter: brightness(1); transform: scale(1); }
+  to { filter: brightness(1.28); transform: scale(1.03); }
+}
+
+.scanPanel {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(141, 213, 255, 0.11), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025)),
+    rgba(4, 9, 17, 0.72);
+  padding: 20px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  position: relative;
+}
+
+.scanPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, rgba(141, 213, 255, 0.06), transparent);
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+.scanPanel.isRunning::before {
+  animation: scanBeam 1.45s ease-in-out infinite;
+}
+
+@keyframes scanBeam {
+  0% { transform: translateY(-100%); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+.scanPanel > * {
+  position: relative;
+}
+
+.scanHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.scanHeader h2 {
+  margin: 0;
+  letter-spacing: -0.04em;
+  font-size: clamp(24px, 2.2vw, 34px);
+}
+
+.scanOutcome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 116px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.scanOutcome.decisionConstrain,
+.outcomeRibbon .decisionConstrain {
+  color: #ffe29a;
+  border-color: rgba(255, 209, 102, 0.42);
+  background: rgba(255, 209, 102, 0.1);
+}
+
+.decisionAllow { color: #9bffbf !important; }
+.decisionConstrain { color: #ffe29a !important; }
+.decisionEscalate { color: #8dd5ff !important; }
+.decisionBlock { color: #ff9b9b !important; }
+.decisionUnknown { color: var(--muted) !important; }
+
+.scanRows {
+  display: grid;
+  gap: 10px;
+}
+
+.scanRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.032);
+  animation: rowReveal 420ms ease both;
+  animation-delay: var(--delay);
+}
+
+@keyframes rowReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.scanDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--soft);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.035);
+}
+
+.scanRow strong,
+.scanRow small,
+.scanRow em {
+  display: block;
+}
+
+.scanRow small,
+.scanRow em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.scanRow.pass .scanDot { background: var(--green); box-shadow: 0 0 20px rgba(100,240,161,0.5); }
+.scanRow.warn .scanDot { background: var(--warning); box-shadow: 0 0 20px rgba(255,209,102,0.5); }
+.scanRow.block .scanDot { background: var(--danger); box-shadow: 0 0 20px rgba(255,124,124,0.5); }
+.scanRow.active .scanDot { background: var(--accent); box-shadow: 0 0 20px rgba(141,213,255,0.6); animation: nodeWake 900ms ease-in-out infinite alternate; }
+
+.scanFootnote {
+  color: var(--muted);
+  margin: 16px 0 0;
+  line-height: 1.5;
+}
+
+.outcomeRibbon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--tone) 32%, var(--border));
+  border-radius: 14px;
+  padding: 12px 13px;
+  margin: 0 0 12px;
+  background: color-mix(in srgb, var(--tone) 10%, transparent);
+}
+
+.outcomeRibbon span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.outcomeRibbon strong {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.resultCard {
+  animation: cardRise 500ms ease both;
+}
+
+.resultCard:nth-child(2) { animation-delay: 110ms; }
+.resultCard:nth-child(3) { animation-delay: 220ms; }
+
+@keyframes cardRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.resultCard.decisionBlock {
+  box-shadow: inset 0 0 0 1px rgba(255, 124, 124, 0.12);
+}
+
+.resultCard.decisionConstrain {
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.12);
+}
+
+.resultCard.decisionAllow {
+  box-shadow: inset 0 0 0 1px rgba(100, 240, 161, 0.12);
+}
+
+@media (max-width: 760px) {
+  .scanHeader,
+  .scanRow,
+  .outcomeRibbon {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .scanOutcome {
+    min-width: 0;
+  }
+
+  .executionMap.isRunning::after {
+    display: none;
+  }
+}

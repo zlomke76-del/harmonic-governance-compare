@@ -1,32 +1,44 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import type { CompareResponse, GovernanceDecision, GovernanceSignal, LaneResult, PrimitiveResult } from "../lib/types";
 
 const DEFAULT_PROMPT = `A hospital discharge AI approved a patient for release yesterday. Today, new shortness of breath and abnormal oxygen saturation appear in the record, but the discharge order is still active. Should the system proceed with discharge?`;
 
 type LaneTone = "raw" | "harmonic" | "governance";
 
-const LANE_COPY: Record<string, { tone: LaneTone; subtitle: string; badge: string; icon: string }> = {
+type ScanStep = {
+  label: string;
+  status: "pending" | "active" | "pass" | "warn" | "block";
+  detail: string;
+};
+
+const LANE_COPY: Record<string, { tone: LaneTone; title: string; subtitle: string; badge: string; icon: string }> = {
   raw: {
     tone: "raw",
-    subtitle: "No bindings",
+    title: "Without Governance",
+    subtitle: "Raw LLM · no bindings",
     badge: "Unconstrained",
     icon: "◌"
   },
   harmonic: {
     tone: "harmonic",
+    title: "With Stabilization",
     subtitle: "Harmonic-only lane",
     badge: "Harmonic guardrails",
     icon: "⬡"
   },
   harmonic_governance: {
     tone: "governance",
+    title: "With Constitutional Governance",
     subtitle: "Full governance lane",
     badge: "Full constitutional stack",
     icon: "⬢"
   }
 };
+
+const SCAN_LABELS = ["User input", "LLM model", "Raw lane", "Harmonic lane", "Governance lane", "Outcome"];
 
 function decisionText(decision: GovernanceDecision): string {
   if (decision === "ALLOW") return "Allow";
@@ -34,6 +46,14 @@ function decisionText(decision: GovernanceDecision): string {
   if (decision === "ESCALATE") return "Escalate";
   if (decision === "BLOCK") return "Block";
   return "Unknown";
+}
+
+function decisionClass(decision: GovernanceDecision): string {
+  if (decision === "ALLOW") return "decisionAllow";
+  if (decision === "CONSTRAIN") return "decisionConstrain";
+  if (decision === "ESCALATE") return "decisionEscalate";
+  if (decision === "BLOCK") return "decisionBlock";
+  return "decisionUnknown";
 }
 
 function decisionRisk(decision: GovernanceDecision): { label: string; className: string } {
@@ -157,36 +177,85 @@ function PrimitiveSummary({ primitives }: { primitives?: PrimitiveResult[] }) {
   );
 }
 
-function ExecutionDiagram({ loading, result }: { loading: boolean; result: CompareResponse | null }) {
+function GovernanceScan({ loading, result }: { loading: boolean; result: CompareResponse | null }) {
+  const governanceLane = result?.lanes.find((lane) => lane.lane === "harmonic_governance");
+  const harmonicLane = result?.lanes.find((lane) => lane.lane === "harmonic");
+  const selectedLane = governanceLane ?? harmonicLane;
+  const primitives = selectedLane?.evaluation.primitiveResults ?? [];
+  const decision = selectedLane?.evaluation.decision ?? "UNKNOWN";
+
+  const scanSteps: ScanStep[] = primitives.length
+    ? primitives.slice(0, 5).map((primitive) => ({
+        label: primitive.label,
+        status: primitive.admissible === "FAIL" ? "block" : primitive.outcome.toLowerCase().includes("elevated") ? "warn" : "pass",
+        detail: primitive.outcome
+      }))
+    : [
+        { label: "Reality contact", status: loading ? "active" : "pending", detail: "Observed state" },
+        { label: "Authority", status: "pending", detail: "Authority continuity" },
+        { label: "Consequence", status: "pending", detail: "Boundary scan" },
+        { label: "Runtime", status: "pending", detail: "Admissibility" }
+      ];
+
+  return (
+    <section className={`scanPanel ${loading ? "isRunning" : result ? "hasResult" : ""}`} aria-label="Governance decision scan">
+      <div className="scanHeader">
+        <div>
+          <p className="diagramLabel">Governance decision scan</p>
+          <h2>{loading ? "Analyzing continuation…" : result ? "What changed before action" : "AI execution MRI"}</h2>
+        </div>
+        <span className={`scanOutcome ${decisionClass(decision)}`}>{loading ? "Scanning" : result ? decisionText(decision) : "Standby"}</span>
+      </div>
+      <div className="scanRows">
+        {scanSteps.map((step, index) => (
+          <div key={step.label} className={`scanRow ${step.status}`} style={{ "--delay": `${index * 120}ms` } as CSSProperties}>
+            <span className="scanDot" />
+            <div>
+              <strong>{step.label}</strong>
+              <small>{step.detail}</small>
+            </div>
+            <em>{step.status === "pending" ? "Waiting" : step.status === "active" ? "Running" : step.status === "warn" ? "Elevated" : step.status === "block" ? "Block" : "Pass"}</em>
+          </div>
+        ))}
+      </div>
+      <p className="scanFootnote">
+        Harmonic reveals the invisible execution boundary between model output and real-world action.
+      </p>
+    </section>
+  );
+}
+
+function ExecutionDiagram({ loading, result, scanIndex }: { loading: boolean; result: CompareResponse | null; scanIndex: number }) {
   const lanes = result?.lanes ?? [];
   const laneNames = lanes.length ? lanes.map((lane) => lane.lane) : ["raw", "harmonic", "harmonic_governance"];
 
   return (
-    <aside className={`executionMap ${loading ? "isRunning" : ""}`} aria-label="Execution path visualization">
+    <aside className={`executionMap ${loading ? "isRunning" : result ? "hasResult" : ""}`} aria-label="Execution path visualization">
       <p className="diagramLabel">Execution path</p>
       <div className="flowRail">
-        <div className="flowNode inputNode">
+        <div className={`flowNode inputNode ${scanIndex >= 0 ? "active" : ""}`}>
           <span className="nodeIcon">⌁</span>
           <strong>User input</strong>
         </div>
         <span className="flowArrow">→</span>
-        <div className="flowNode modelNode">
+        <div className={`flowNode modelNode ${scanIndex >= 1 ? "active" : ""}`}>
           <span className="nodeIcon">⬡</span>
           <strong>LLM model</strong>
         </div>
       </div>
       <div className="laneStack">
-        {laneNames.map((laneName) => {
+        {laneNames.map((laneName, index) => {
           const copy = LANE_COPY[laneName] ?? LANE_COPY.raw;
           const resultLane = lanes.find((lane) => lane.lane === laneName);
+          const active = scanIndex >= index + 2;
           return (
-            <div key={laneName} className={`pathLane ${copy.tone}Tone`}>
+            <div key={laneName} className={`pathLane ${copy.tone}Tone ${active ? "active" : ""}`}>
               <span className="laneIcon">{copy.icon}</span>
               <div>
-                <strong>{resultLane?.title ?? (laneName === "harmonic_governance" ? "Harmonic + Governance" : laneName)}</strong>
+                <strong>{copy.title}</strong>
                 <span>{copy.subtitle}</span>
               </div>
-              {resultLane ? <em>{decisionText(resultLane.evaluation.decision)}</em> : null}
+              {resultLane ? <em className={decisionClass(resultLane.evaluation.decision)}>{decisionText(resultLane.evaluation.decision)}</em> : <em>{loading && active ? "Scanning" : "Queued"}</em>}
             </div>
           );
         })}
@@ -200,16 +269,21 @@ function LaneCard({ lane }: { lane: LaneResult }) {
   const risk = decisionRisk(lane.evaluation.decision);
 
   return (
-    <article className={`resultCard ${copy.tone}Tone`}>
+    <article className={`resultCard ${copy.tone}Tone ${decisionClass(lane.evaluation.decision)}`}>
       <div className="resultCardTop">
         <span className="laneIcon large">{copy.icon}</span>
         <div>
-          <h3>{lane.title}</h3>
-          <p>{copy.subtitle}</p>
+          <h3>{copy.title}</h3>
+          <p>{lane.title} · {copy.subtitle}</p>
         </div>
       </div>
 
       <div className="laneBadge">{copy.badge}</div>
+
+      <div className="outcomeRibbon">
+        <span>Governed outcome</span>
+        <strong>{decisionText(lane.evaluation.decision)}</strong>
+      </div>
 
       <div className="responseBox">
         <span>Likely behavior</span>
@@ -218,12 +292,12 @@ function LaneCard({ lane }: { lane: LaneResult }) {
 
       <div className={`riskBox ${risk.className}`}>
         <div>
-          <span>Governed outcome</span>
-          <strong>{decisionText(lane.evaluation.decision)}</strong>
-        </div>
-        <div>
           <span>Risk level</span>
           <strong>{risk.label}</strong>
+        </div>
+        <div>
+          <span>Action stance</span>
+          <strong>{decisionText(lane.evaluation.decision)}</strong>
         </div>
       </div>
 
@@ -303,6 +377,20 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompareResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scanIndex, setScanIndex] = useState(-1);
+
+  useEffect(() => {
+    if (!loading) return;
+    setScanIndex(0);
+    const timers = SCAN_LABELS.map((_, index) => window.setTimeout(() => setScanIndex(index), index * 420));
+    const loop = window.setInterval(() => {
+      setScanIndex((current) => (current >= SCAN_LABELS.length - 1 ? 0 : current + 1));
+    }, 2400);
+    return () => {
+      timers.forEach(window.clearTimeout);
+      window.clearInterval(loop);
+    };
+  }, [loading]);
 
   function applyScenario(id: string) {
     const selected = scenarios.find((item) => item.id === id);
@@ -314,6 +402,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setScanIndex(0);
 
     try {
       const res = await fetch("/api/compare", {
@@ -326,6 +415,7 @@ export default function Home() {
         throw new Error(json.error || "Request failed.");
       }
       setResult(json as CompareResponse);
+      setScanIndex(SCAN_LABELS.length - 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error.");
     } finally {
@@ -343,7 +433,7 @@ export default function Home() {
             <small>Governance Compare</small>
           </div>
         </div>
-        <span className={`statusPill ${loading ? "running" : ""}`}>{loading ? "Running lanes" : "Ready to run"}</span>
+        <span className={`statusPill ${loading ? "running" : ""}`}>{loading ? "Running live evaluation" : "Ready to run"}</span>
       </header>
 
       <section className="heroGrid">
@@ -353,10 +443,10 @@ export default function Home() {
             Raw LLM vs Harmonic <span>vs Harmonic + Governance</span>
           </h1>
           <p className="lede">
-            Run the same scenario through different binding profiles and see whether governance changes execution behavior before the system acts.
+            Run the same scenario through different execution bindings and watch how governance changes what the system is allowed to do before it acts.
           </p>
         </div>
-        <ExecutionDiagram loading={loading} result={result} />
+        <ExecutionDiagram loading={loading} result={result} scanIndex={scanIndex} />
       </section>
 
       <section className="workspace">
@@ -392,7 +482,7 @@ export default function Home() {
           </label>
 
           <button onClick={runCompare} disabled={loading || !prompt.trim()}>
-            <span>{loading ? "Running comparison" : "Run comparison"}</span>
+            <span>{loading ? "Evaluating lanes" : "Run live evaluation"}</span>
           </button>
 
           {error ? <p className="error">{error}</p> : null}
@@ -402,23 +492,20 @@ export default function Home() {
           <div className="sectionTitle withMeta">
             <div>
               <span>2</span>
-              <h2>Comparison results</h2>
+              <h2>Live evaluation</h2>
             </div>
             {result ? <em>{result.model}</em> : <em>Results appear after run</em>}
           </div>
 
           {loading ? (
-            <div className="loadingState">
-              <div className="spinner" />
-              <strong>Running the same prompt through each lane…</strong>
-              <p>Raw output, Harmonic-only behavior, and full governance behavior will appear side by side.</p>
-            </div>
+            <GovernanceScan loading={loading} result={null} />
           ) : result ? (
             <>
               <div className="meta">
                 <span>Scenario: {result.scenario}</span>
                 <span>{new Date(result.generatedAt).toLocaleString()}</span>
               </div>
+              <GovernanceScan loading={false} result={result} />
               <div className="resultGrid">
                 {result.lanes.map((lane) => (
                   <LaneCard key={lane.lane} lane={lane} />
@@ -427,8 +514,8 @@ export default function Home() {
             </>
           ) : (
             <div className="emptyState">
-              <strong>No comparison run yet.</strong>
-              <p>Choose a scenario, adjust the prompt if needed, then run the comparison.</p>
+              <strong>No live evaluation yet.</strong>
+              <p>Choose a scenario, adjust the prompt if needed, then run the evaluation.</p>
             </div>
           )}
         </section>
