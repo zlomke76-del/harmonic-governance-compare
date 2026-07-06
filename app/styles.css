@@ -2097,15 +2097,15 @@ pre {
   grid-template-columns: repeat(2, minmax(112px, 1fr));
   gap: 8px;
 }
-.recommendationSeal {
+.stateSeal {
   border-color: rgba(255, 124, 124, 0.32);
   background: rgba(255, 124, 124, 0.075);
 }
-.decisionAllow .recommendationSeal {
+.decisionAllow .stateSeal {
   border-color: rgba(84, 224, 167, 0.32);
   background: rgba(84, 224, 167, 0.075);
 }
-.decisionConstrain .recommendationSeal {
+.decisionConstrain .stateSeal {
   border-color: rgba(255, 209, 102, 0.32);
   background: rgba(255, 209, 102, 0.075);
 }
@@ -2278,68 +2278,4 @@ pre {
   .continuitySeals,
   .timelineRail { grid-template-columns: 1fr; }
   .staleSeal { text-align: left; }
-}
-
-/* V65 execution state transition layer */
-.executionStateBar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 12px 0 13px;
-  position: relative;
-}
-.executionStateStep {
-  position: relative;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: rgba(255,255,255,0.045);
-  padding: 11px 12px;
-  min-height: 88px;
-}
-.executionStateStep::after {
-  content: "→";
-  position: absolute;
-  right: -18px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--soft);
-  font-weight: 900;
-}
-.executionStateStep:last-child::after { display: none; }
-.executionStateStep span,
-.executionStateStep em {
-  display: block;
-  color: var(--soft);
-  font-size: 10px;
-  font-style: normal;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.executionStateStep strong {
-  display: block;
-  margin: 7px 0 5px;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-}
-.executionStateStep.good {
-  border-color: rgba(84, 224, 167, 0.34);
-  background: rgba(84, 224, 167, 0.07);
-}
-.executionStateStep.warn,
-.executionStateStep.escalate {
-  border-color: rgba(255, 209, 102, 0.36);
-  background: rgba(255, 209, 102, 0.075);
-}
-.executionStateStep.bad {
-  border-color: rgba(255, 124, 124, 0.36);
-  background: rgba(255, 124, 124, 0.08);
-}
-@media (max-width: 760px) {
-  .executionStateBar { grid-template-columns: 1fr; }
-  .executionStateStep::after {
-    content: "↓";
-    right: 50%;
-    top: calc(100% + 2px);
-    transform: translateX(50%);
-  }
 }

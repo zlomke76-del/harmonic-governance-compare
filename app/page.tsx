@@ -794,7 +794,7 @@ function continuityTimeline(result: CompareResponse, decisionLane?: LaneResult):
       marker: "T0",
       title: "Recommendation created",
       timestamp: recommendedAt.toLocaleTimeString(),
-      detail: "Execution is initially eligible only for the evidence, authority, and reality available at T0.",
+      detail: "Execution starts in the state allowed by the evidence, authority, and reality available at T0.",
       state: "current",
       status: "🟢 Executable"
     },
@@ -810,7 +810,7 @@ function continuityTimeline(result: CompareResponse, decisionLane?: LaneResult):
       marker: "T2",
       title: "Execution requested",
       timestamp: requestedAt.toLocaleTimeString(),
-      detail: "The system is no longer judging the answer; it is testing execution eligibility under current conditions.",
+      detail: "The system is no longer judging the answer; it is testing the current execution state.",
       state: "stale",
       status: decision === "ALLOW" ? "🟢 Executable" : decision === "CONSTRAIN" ? "🟡 Constrained" : decision === "ESCALATE" ? "🟠 Escalation required" : "🔴 Non-executable"
     },
@@ -825,57 +825,6 @@ function continuityTimeline(result: CompareResponse, decisionLane?: LaneResult):
   ];
 }
 
-
-function executionStateSteps(decision: GovernanceDecision): { label: string; detail: string; tone: string }[] {
-  if (decision === "ALLOW") {
-    return [
-      { label: "Executable", detail: "T0 recommendation eligible", tone: "good" },
-      { label: "Continuity intact", detail: "No material state break", tone: "good" },
-      { label: "Proceed", detail: "Runtime allows execution", tone: "good" }
-    ];
-  }
-  if (decision === "CONSTRAIN") {
-    return [
-      { label: "Executable", detail: "T0 recommendation eligible", tone: "good" },
-      { label: "Revalidation required", detail: "Conditions changed", tone: "warn" },
-      { label: "Constrained", detail: "Proceed only inside boundary", tone: "warn" }
-    ];
-  }
-  if (decision === "ESCALATE") {
-    return [
-      { label: "Executable", detail: "T0 recommendation eligible", tone: "good" },
-      { label: "Authority transfer", detail: "Consequence boundary crossed", tone: "warn" },
-      { label: "Escalate", detail: "Continuation authority required", tone: "escalate" }
-    ];
-  }
-  if (decision === "BLOCK") {
-    return [
-      { label: "Executable", detail: "T0 recommendation eligible", tone: "good" },
-      { label: "Continuity broken", detail: "Live state invalidated", tone: "bad" },
-      { label: "Non-executable", detail: "Runtime blocks action", tone: "bad" }
-    ];
-  }
-  return [
-    { label: "Pending", detail: "No execution packet evaluated", tone: "neutral" },
-    { label: "Pending", detail: "Awaiting runtime state", tone: "neutral" },
-    { label: "Pending", detail: "No decision yet", tone: "neutral" }
-  ];
-}
-
-function ExecutionStateBar({ decision }: { decision: GovernanceDecision }) {
-  const steps = executionStateSteps(decision);
-  return (
-    <div className={`executionStateBar ${decisionClass(decision)}`} aria-label="Execution state transition">
-      {steps.map((step, index) => (
-        <div key={`${step.label}-${index}`} className={`executionStateStep ${step.tone}`}>
-          <span>{index === 0 ? "T0" : index === 1 ? "T1" : "T3"}</span>
-          <strong>{step.label}</strong>
-          <em>{step.detail}</em>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse; decisionLane?: LaneResult }) {
   const decision = decisionLane?.evaluation.decision ?? "UNKNOWN";
@@ -892,8 +841,8 @@ function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse;
           <p>Recommendations are made at a point in time. Execution happens across time. Harmonic governs the continuity between them.</p>
         </div>
         <div className="continuitySeals">
-          <div className="staleSeal recommendationSeal">
-            <span>Execution Eligibility</span>
+          <div className="staleSeal stateSeal">
+            <span>Execution State</span>
             <strong>{status.executionState}</strong>
           </div>
           <div className="staleSeal">
@@ -902,7 +851,6 @@ function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse;
           </div>
         </div>
       </div>
-      <ExecutionStateBar decision={decision} />
 
       <div className="timelineRail">
         {events.map((event, index) => (
@@ -919,7 +867,7 @@ function ContinuityTimeline({ result, decisionLane }: { result: CompareResponse;
       </div>
       <div className="continuityThesis">
         <strong>The recommendation was not necessarily wrong.</strong>
-        <span>Execution eligibility changed because continuity changed before action.</span>
+        <span>Execution state changed because continuity changed before action.</span>
       </div>
     </section>
   );
