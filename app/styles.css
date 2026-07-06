@@ -1244,3 +1244,124 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* V49 complete demo experience upgrade */
+.scenarioDescription {
+  margin: 12px 0 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(141, 213, 255, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(141, 213, 255, 0.08), rgba(227, 179, 65, 0.055));
+}
+.scenarioDescription span {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.scenarioDescription strong {
+  display: block;
+  color: var(--text);
+  font-size: 1rem;
+}
+.scenarioDescription p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.promptTools {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 8px;
+}
+.copyButton {
+  appearance: none;
+  border: 1px solid rgba(141, 213, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(141, 213, 255, 0.07);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+.copyButton:hover {
+  border-color: rgba(227, 179, 65, 0.55);
+  background: rgba(227, 179, 65, 0.12);
+  transform: translateY(-1px);
+}
+.boxHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.boxHeader > span {
+  margin: 0 !important;
+}
+.decisionBanner {
+  margin: 14px 0 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+.decisionBanner span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.decisionBanner strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: clamp(1.3rem, 2.8vw, 2.05rem);
+  letter-spacing: -0.03em;
+}
+.decisionBanner small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.decisionBanner.decisionAllow {
+  border-color: rgba(91, 214, 138, 0.36);
+  background: rgba(91, 214, 138, 0.08);
+}
+.decisionBanner.decisionConstrain {
+  border-color: rgba(227, 179, 65, 0.42);
+  background: rgba(227, 179, 65, 0.09);
+}
+.decisionBanner.decisionEscalate {
+  border-color: rgba(255, 154, 86, 0.42);
+  background: rgba(255, 154, 86, 0.09);
+}
+.decisionBanner.decisionBlock {
+  border-color: rgba(255, 94, 94, 0.44);
+  background: rgba(255, 94, 94, 0.09);
+}
+.primitiveStack > summary {
+  color: var(--text);
+  font-weight: 800;
+}
+@media (max-width: 720px) {
+  .scenarioDescription,
+  .decisionBanner {
+    border-radius: 16px;
+    padding: 13px;
+  }
+  .boxHeader {
+    align-items: flex-start;
+  }
+  .promptTools {
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+}
