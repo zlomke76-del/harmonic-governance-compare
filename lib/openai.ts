@@ -23,8 +23,26 @@ function getGatewayConfig(): { apiKey: string; baseURL?: string; model: string; 
   };
 }
 
+function normalizeModelForProvider(model: string, hasGateway: boolean): string {
+  const requested = model.trim();
+
+  if (hasGateway) return requested;
+
+  if (requested.startsWith("openai/")) {
+    return requested.replace(/^openai\//, "");
+  }
+
+  if (requested.includes("/")) {
+    return process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  }
+
+  return requested;
+}
+
 export function getModelName(modelOverride?: string): string {
-  return modelOverride?.trim() || getGatewayConfig().model;
+  const config = getGatewayConfig();
+  const requested = modelOverride?.trim() || config.model;
+  return normalizeModelForProvider(requested, Boolean(config.baseURL));
 }
 
 export function getProviderLabel(): string {
@@ -48,14 +66,19 @@ export async function callSameLlm(params: {
   const client = getOpenAIClient();
   const model = getModelName(params.model);
 
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: params.temperature ?? 0.2,
-    messages: [
-      { role: "system", content: params.system },
-      { role: "user", content: params.user }
-    ]
-  });
+  try {
+    const completion = await client.chat.completions.create({
+      model,
+      temperature: params.temperature ?? 0.2,
+      messages: [
+        { role: "system", content: params.system },
+        { role: "user", content: params.user }
+      ]
+    });
 
-  return completion.choices[0]?.message?.content?.trim() || "";
+    return completion.choices[0]?.message?.content?.trim() || "";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown model error.";
+    throw new Error(`LLM request failed for model "${model}". Check that the model is enabled in Vercel AI Gateway or select an OpenAI model. ${message}`);
+  }
 }
