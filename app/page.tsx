@@ -604,7 +604,7 @@ function LaneCard({ lane }: { lane: LaneResult }) {
 
       <div className="responseBox">
         <div className="boxHeader">
-          <span>{lane.lane === "raw" ? "Model recommendation" : "Governance rationale"}</span>
+          <span>{lane.lane === "raw" ? "Model recommendation" : "Execution Boundary Analysis"}</span>
           <CopyButton text={lane.response} label="Copy" />
         </div>
         <p>{lane.response}</p>
@@ -622,7 +622,7 @@ function LaneCard({ lane }: { lane: LaneResult }) {
       </div>
 
       <div className="rationaleBox">
-        <span>Rationale</span>
+        <span>Execution Boundary Analysis</span>
         <p>{lane.evaluation.summary || "No summary returned."}</p>
       </div>
 
@@ -659,6 +659,147 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         </details>
       ) : null}
     </article>
+  );
+}
+
+
+function requiredActionForDecision(lane?: LaneResult): string {
+  const decision = lane?.evaluation.decision ?? "UNKNOWN";
+  const failed = lane?.evaluation.primitiveResults?.filter((primitive) => primitive.admissible === "FAIL") ?? [];
+  const failedLabels = failed.map((primitive) => primitive.label).join(", ");
+
+  if (decision === "ALLOW") return "Continue execution under the current authorization and evidence state.";
+  if (decision === "CONSTRAIN") return `Continue only inside the constrained boundary${failedLabels ? `: ${failedLabels}` : ""}. Revalidate changed conditions before expansion.`;
+  if (decision === "ESCALATE") return "Transfer continuation authority to the accountable operator. Execution remains suspended until authority resolution occurs.";
+  if (decision === "BLOCK") return "Do not execute. Preserve the packet, stop the action, and require a new admissible authorization path.";
+  return "No constitutional execution decision has been bound yet.";
+}
+
+function outcomeGlyph(primitive: PrimitiveResult): string {
+  if (primitive.admissible === "PASS") return "✓";
+  if (primitive.admissible === "FAIL") return "✕";
+  return "?";
+}
+
+function getRawRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function stableArtifactId(result: CompareResponse, lane?: LaneResult): string {
+  const raw = getRawRecord(lane?.evaluation.raw);
+  const direct = raw.packet_id || raw.packetId || raw.id;
+  if (typeof direct === "string" && direct.trim()) return direct;
+  return `${result.scenario}-${result.generatedAt}`;
+}
+
+function EngineeringView({ result, lane }: { result: CompareResponse; lane?: LaneResult }) {
+  const raw = getRawRecord(lane?.evaluation.raw);
+  const primitives = lane?.evaluation.primitiveResults ?? [];
+  const primitiveHashes = primitives
+    .filter((primitive) => primitive.artifactHash)
+    .map((primitive) => `${primitive.label}: ${shortHash(primitive.artifactHash)}`)
+    .join(" · ") || "Local primitive artifacts not returned by endpoint";
+
+  const rows = [
+    { label: "Execution Packet", value: stableArtifactId(result, lane) },
+    { label: "Runtime", value: lane?.evaluation.available ? "External Harmonic / Governance Pack" : "Local fallback / endpoint not configured" },
+    { label: "Governance Pack", value: String(raw.version || raw.governance_pack_version || raw.package_version || "constitutional-runtime-vNext") },
+    { label: "Execution Binding", value: lane ? `${lane.title} → ${decisionText(lane.evaluation.decision)}` : "Pending" },
+    { label: "Primitive Hashes", value: primitiveHashes },
+    { label: "Artifact Lineage", value: "User Input → LLM Recommendation → Harmonic Stabilization → Constitutional Runtime → Execution Decision" }
+  ];
+
+  return (
+    <details className="engineeringView">
+      <summary>Engineering View</summary>
+      <div className="engineeringGrid">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+      {lane?.evaluation.raw ? <pre>{JSON.stringify(lane.evaluation.raw, null, 2)}</pre> : null}
+    </details>
+  );
+}
+
+function ExecutionConsole({ result }: { result: CompareResponse }) {
+  const governanceLane = result.lanes.find((lane) => lane.lane === "harmonic_governance");
+  const harmonicLane = result.lanes.find((lane) => lane.lane === "harmonic");
+  const rawLane = result.lanes.find((lane) => lane.lane === "raw");
+  const decisionLane = governanceLane ?? harmonicLane;
+  const decision = decisionLane?.evaluation.decision ?? "UNKNOWN";
+  const banner = decisionBanner(decision);
+  const primitives = decisionLane?.evaluation.primitiveResults ?? [];
+
+  return (
+    <div className="executionConsole">
+      <section className={`kernelDecision ${decisionClass(decision)}`}>
+        <div>
+          <span className="consoleLabel">Constitutional Decision</span>
+          <h3>{banner.label}</h3>
+          <p>{decisionLane?.evaluation.summary || banner.detail}</p>
+        </div>
+        <div className="decisionSeal">
+          <span>Decision</span>
+          <strong>{decisionText(decision)}</strong>
+        </div>
+      </section>
+
+      <section className="requiredActionCard">
+        <span>Required Action</span>
+        <strong>{requiredActionForDecision(decisionLane)}</strong>
+      </section>
+
+      <section className="primitiveScanPanel">
+        <div className="consoleSectionHeader">
+          <span>Primitive Scan</span>
+          <em>Reality · Authority · Consequence · Runtime</em>
+        </div>
+        {primitives.length ? (
+          <div className="primitiveTable">
+            {primitives.map((primitive) => (
+              <div key={primitive.key} className={`primitiveTableRow ${primitive.admissible.toLowerCase()}`}>
+                <span className="primitiveGlyph">{outcomeGlyph(primitive)}</span>
+                <strong>{primitive.label}</strong>
+                <em>{primitive.outcome}</em>
+                <span className={`primitiveBadge ${primitive.admissible.toLowerCase()}`}>{primitive.admissible}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">Primitive artifacts will appear when the Harmonic and Governance Pack endpoints return runtime results.</p>
+        )}
+      </section>
+
+      <details className="boundaryAnalysis">
+        <summary>Execution Boundary Analysis</summary>
+        <div className="laneStackCompact">
+          {result.lanes.map((lane) => (
+            <LaneCard key={lane.lane} lane={lane} />
+          ))}
+        </div>
+      </details>
+
+      <section className="modelConvergence">
+        <div>
+          <span>Reasoning Engine</span>
+          <strong>{rawLane ? "LLM recommendation only" : "Pending"}</strong>
+        </div>
+        <div>
+          <span>Execution Stabilizer</span>
+          <strong>{harmonicLane ? decisionText(harmonicLane.evaluation.decision) : "Not included"}</strong>
+        </div>
+        <div>
+          <span>Execution Kernel</span>
+          <strong>{decisionText(decision)}</strong>
+        </div>
+      </section>
+
+      <EngineeringView result={result} lane={decisionLane} />
+    </div>
   );
 }
 
@@ -915,12 +1056,7 @@ export default function Home() {
                 <span>Scenario: {result.scenario}</span>
                 <span>{new Date(result.generatedAt).toLocaleString()}</span>
               </div>
-              <GovernanceScan loading={false} result={result} />
-              <div className="resultGrid">
-                {result.lanes.map((lane) => (
-                  <LaneCard key={lane.lane} lane={lane} />
-                ))}
-              </div>
+              <ExecutionConsole result={result} />
             </>
           ) : (
             <div className="emptyState">
