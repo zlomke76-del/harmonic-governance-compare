@@ -54,13 +54,22 @@ const CUSTOM_SCENARIO_ID = "custom";
 
 const PATTERN_ALL = "All constitutional patterns";
 
-const MODEL_OPTIONS = [
+const OPENAI_MODEL_OPTIONS = [
   { id: "openai/gpt-4.1-mini", label: "GPT-4.1 mini", provider: "OpenAI", note: "Fast default" },
-  { id: "openai/gpt-4.1", label: "GPT-4.1", provider: "OpenAI", note: "Stronger reasoning" },
-  { id: "anthropic/claude-3-5-sonnet", label: "Claude Sonnet", provider: "Anthropic", note: "Gateway route" },
-  { id: "google/gemini-2.5-flash", label: "Gemini Flash", provider: "Google", note: "Gateway route" },
-  { id: "meta/llama-3.1-70b-instruct", label: "Llama 70B", provider: "Open model", note: "Gateway route" }
+  { id: "openai/gpt-4.1", label: "GPT-4.1", provider: "OpenAI", note: "Stronger reasoning" }
 ];
+
+const GATEWAY_MODEL_OPTIONS = [
+  { id: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", provider: "Anthropic", note: "Requires Vercel AI Gateway" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "Google", note: "Requires Vercel AI Gateway" },
+  { id: "meta/llama-3.3-70b-instruct", label: "Llama 3.3 70B", provider: "Meta", note: "Requires Vercel AI Gateway" }
+];
+
+const CROSS_PROVIDER_MODELS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_CROSS_PROVIDER_MODELS === "true";
+
+const MODEL_OPTIONS = CROSS_PROVIDER_MODELS_ENABLED
+  ? [...OPENAI_MODEL_OPTIONS, ...GATEWAY_MODEL_OPTIONS]
+  : OPENAI_MODEL_OPTIONS;
 
 function decisionText(decision: GovernanceDecision): string {
   if (decision === "ALLOW") return "Allow";
@@ -824,6 +833,11 @@ export default function Home() {
                   </option>
                 ))}
               </select>
+              <span className="fieldHint">
+                {CROSS_PROVIDER_MODELS_ENABLED
+                  ? "Cross-provider models require Vercel AI Gateway access for each selected route."
+                  : "OpenAI-safe mode. Enable NEXT_PUBLIC_ENABLE_CROSS_PROVIDER_MODELS=true to show Claude, Gemini, and Meta gateway routes."}
+              </span>
             </label>
 
             <label>
