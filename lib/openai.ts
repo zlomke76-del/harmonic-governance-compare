@@ -10,6 +10,31 @@ type GatewayConfig = {
   runtime: ProviderRuntime;
 };
 
+const MODEL_ALIASES: Record<string, string> = {
+  // V58 compatibility aliases. These keep older dropdown/localStorage values working
+  // while routing to model IDs that are currently exposed by Vercel AI Gateway.
+  "google/gemini-3.1-flash": "google/gemini-3.5-flash",
+  "mistral/mistral-large-latest": "mistral/mistral-large-3",
+  "mistral/mistral-large": "mistral/mistral-large-3"
+};
+
+const PROVIDER_FALLBACKS: Record<string, string> = {
+  openai: "openai/gpt-4.1-mini",
+  anthropic: "anthropic/claude-sonnet-5",
+  google: "google/gemini-3.5-flash",
+  xai: "xai/grok-4.3",
+  meta: "meta/llama-4-maverick",
+  mistral: "mistral/mistral-large-3"
+};
+
+function applyModelAlias(model: string): string {
+  return MODEL_ALIASES[model] || model;
+}
+
+function providerFromModel(model: string): string | null {
+  return model.includes("/") ? model.split("/")[0] || null : null;
+}
+
 function getGatewayConfig(): GatewayConfig {
   const gatewayKey = process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.AI_GATEWAY_API_KEY;
 
@@ -41,9 +66,9 @@ function getGatewayConfig(): GatewayConfig {
 }
 
 function normalizeModelForRuntime(model: string, config: GatewayConfig): string {
-  const requested = model.trim();
+  const requested = applyModelAlias(model.trim());
 
-  if (!requested) return config.defaultModel;
+  if (!requested) return applyModelAlias(config.defaultModel);
 
   // Vercel AI Gateway is intentionally model/provider agnostic. It expects
   // provider-prefixed model IDs such as openai/..., anthropic/..., google/..., xai/..., etc.
@@ -68,13 +93,13 @@ function normalizeModelForRuntime(model: string, config: GatewayConfig): string 
 
 export function getModelName(modelOverride?: string): string {
   const config = getGatewayConfig();
-  const requested = modelOverride?.trim() || config.defaultModel;
+  const requested = applyModelAlias(modelOverride?.trim() || config.defaultModel);
   return normalizeModelForRuntime(requested, config);
 }
 
 export function getProviderLabel(modelOverride?: string): string {
   const config = getGatewayConfig();
-  const model = modelOverride?.trim() || config.defaultModel;
+  const model = applyModelAlias(modelOverride?.trim() || config.defaultModel);
 
   if (config.runtime === "vercel-ai-gateway") {
     const providerPrefix = model.includes("/") ? model.split("/")[0] : "gateway";
@@ -101,9 +126,9 @@ export async function callSameLlm(params: {
   const client = getOpenAIClient();
   const model = getModelName(params.model);
 
-  try {
+  const requestCompletion = async (modelId: string) => {
     const completion = await client.chat.completions.create({
-      model,
+      model: modelId,
       temperature: params.temperature ?? 0.2,
       messages: [
         { role: "system", content: params.system },
@@ -112,10 +137,34 @@ export async function callSameLlm(params: {
     });
 
     return completion.choices[0]?.message?.content?.trim() || "";
+  };
+
+  try {
+    return await requestCompletion(model);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown model error.";
+    const config = getGatewayConfig();
+    const provider = providerFromModel(model);
+    const fallback = provider ? PROVIDER_FALLBACKS[provider] : undefined;
+    const isModelLookupFailure = /model .*not found|404|not found/i.test(message);
+
+    // No shortcut: keep the provider selected and retry with a currently valid model
+    // in the same provider family when an older provider model ID disappears from
+    // the Gateway catalog. This preserves model-agnostic behavior without silently
+    // collapsing everything back to OpenAI.
+    if (config.runtime === "vercel-ai-gateway" && fallback && fallback !== model && isModelLookupFailure) {
+      try {
+        return await requestCompletion(fallback);
+      } catch (fallbackErr) {
+        const fallbackMessage = fallbackErr instanceof Error ? fallbackErr.message : "Unknown fallback model error.";
+        throw new Error(
+          `LLM request failed for model "${model}" and same-provider fallback "${fallback}" through ${getProviderLabel(params.model)}. ${fallbackMessage}`
+        );
+      }
+    }
+
     throw new Error(
-      `LLM request failed for model "${model}" through ${getProviderLabel(params.model)}. Verify that this model is enabled in your Vercel AI Gateway model list, or choose another provider-prefixed model ID. ${message}`
+      `LLM request failed for model "${model}" through ${getProviderLabel(params.model)}. Verify that this provider is enabled in your Vercel AI Gateway project. ${message}`
     );
   }
 }
