@@ -1,0 +1,1 @@
+V65 planned delta: execution state animation, compact reasoning, execution eligibility wording.
