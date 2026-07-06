@@ -23,8 +23,8 @@ function getGatewayConfig(): { apiKey: string; baseURL?: string; model: string; 
   };
 }
 
-export function getModelName(): string {
-  return getGatewayConfig().model;
+export function getModelName(modelOverride?: string): string {
+  return modelOverride?.trim() || getGatewayConfig().model;
 }
 
 export function getProviderLabel(): string {
@@ -43,9 +43,10 @@ export async function callSameLlm(params: {
   system: string;
   user: string;
   temperature?: number;
+  model?: string;
 }): Promise<string> {
   const client = getOpenAIClient();
-  const model = getModelName();
+  const model = getModelName(params.model);
 
   const completion = await client.chat.completions.create({
     model,
