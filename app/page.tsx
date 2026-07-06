@@ -27,28 +27,28 @@ type ScenarioOption = {
 const LANE_COPY: Record<string, { tone: LaneTone; title: string; subtitle: string; badge: string; icon: string }> = {
   raw: {
     tone: "raw",
-    title: "Model Recommendation",
-    subtitle: "Raw LLM · no bindings",
-    badge: "No execution binding",
+    title: "Reasoning Engine",
+    subtitle: "LLM recommendation · no execution authority",
+    badge: "Recommendation only",
     icon: "◌"
   },
   harmonic: {
     tone: "harmonic",
-    title: "Execution Stabilization",
-    subtitle: "Harmonic-only lane",
-    badge: "Runtime stabilization",
+    title: "Execution Stabilizer",
+    subtitle: "Harmonic stabilization · bounded continuation",
+    badge: "Stabilization layer",
     icon: "⬡"
   },
   harmonic_governance: {
     tone: "governance",
-    title: "Constitutional Decision",
-    subtitle: "Harmonic + Governance",
-    badge: "Constitutional evaluation",
+    title: "Execution Kernel",
+    subtitle: "Constitutional runtime · execution authority",
+    badge: "Governance kernel",
     icon: "⬢"
   }
 };
 
-const SCAN_LABELS = ["User input", "LLM model", "Raw lane", "Harmonic lane", "Governance lane", "Outcome"];
+const SCAN_LABELS = ["User input", "Reasoning Engine", "Recommendation", "Execution Stabilizer", "Execution Kernel", "Decision"];
 
 const CUSTOM_SCENARIO_ID = "custom";
 
@@ -74,11 +74,34 @@ function decisionText(decision: GovernanceDecision): string {
 }
 
 function decisionBanner(decision: GovernanceDecision): { label: string; detail: string } {
-  if (decision === "ALLOW") return { label: "Continue", detail: "Execution may proceed under the evaluated state." };
-  if (decision === "CONSTRAIN") return { label: "Continue with constraints", detail: "Current continuation is limited until changed conditions are resolved." };
-  if (decision === "ESCALATE") return { label: "Pause & escalate", detail: "Transfer continuation authority before the requested action proceeds." };
-  if (decision === "BLOCK") return { label: "Do not execute", detail: "Execution is inadmissible under the current constitutional state." };
+  if (decision === "ALLOW") return { label: "CONTINUE", detail: "Execution may proceed under the evaluated state." };
+  if (decision === "CONSTRAIN") return { label: "CONSTRAIN", detail: "Execution may continue only inside the evaluated constraints." };
+  if (decision === "ESCALATE") return { label: "ESCALATE", detail: "Execution boundary crossed. Transfer continuation authority before action." };
+  if (decision === "BLOCK") return { label: "BLOCK", detail: "Execution is inadmissible under the current constitutional state." };
   return { label: "Pending evaluation", detail: "No execution decision has been bound yet." };
+}
+
+
+function summarizeText(text: string, max = 360): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length <= max) return compact;
+  const boundary = compact.slice(0, max).lastIndexOf(".");
+  const cut = boundary > 160 ? boundary + 1 : max;
+  return `${compact.slice(0, cut).trim()}…`;
+}
+
+function layerSummary(lane?: LaneResult): string {
+  if (!lane) return "Pending runtime evaluation.";
+  if (lane.lane === "raw") return summarizeText(lane.response, 280);
+  return lane.evaluation.summary || summarizeText(lane.response, 280);
+}
+
+function primitiveStatusTone(primitive: PrimitiveResult): "pass" | "warn" | "fail" | "unknown" {
+  if (primitive.admissible === "FAIL") return "fail";
+  const lowered = `${primitive.outcome} ${primitive.action || ""}`.toLowerCase();
+  if (lowered.includes("elevated") || lowered.includes("condition") || lowered.includes("warn") || lowered.includes("constrain")) return "warn";
+  if (primitive.admissible === "PASS") return "pass";
+  return "unknown";
 }
 
 function lanePrimaryMessage(lane: LaneResult): string {
@@ -604,10 +627,10 @@ function LaneCard({ lane }: { lane: LaneResult }) {
 
       <div className="responseBox">
         <div className="boxHeader">
-          <span>{lane.lane === "raw" ? "Model recommendation" : "Execution Boundary Analysis"}</span>
-          <CopyButton text={lane.response} label="Copy" />
+          <span>{lane.lane === "raw" ? "Recommendation Summary" : "Boundary Summary"}</span>
+          <CopyButton text={lane.response} label="Copy full" />
         </div>
-        <p>{lane.response}</p>
+        <p>{layerSummary(lane)}</p>
       </div>
 
       <div className={`riskBox ${risk.className}`}>
@@ -637,7 +660,7 @@ function LaneCard({ lane }: { lane: LaneResult }) {
       {lane.evaluation.error ? <p className="error">{lane.evaluation.error}</p> : null}
 
       <details className="fullOutput">
-        <summary>View full output</summary>
+        <summary>View full reasoning</summary>
         <pre>{lane.response}</pre>
       </details>
 
@@ -676,8 +699,10 @@ function requiredActionForDecision(lane?: LaneResult): string {
 }
 
 function outcomeGlyph(primitive: PrimitiveResult): string {
-  if (primitive.admissible === "PASS") return "✓";
-  if (primitive.admissible === "FAIL") return "✕";
+  const tone = primitiveStatusTone(primitive);
+  if (tone === "pass") return "✓";
+  if (tone === "warn") return "⚠";
+  if (tone === "fail") return "✕";
   return "?";
 }
 
@@ -725,6 +750,34 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
   );
 }
 
+function executionTarget(result: CompareResponse): string {
+  const scenario = result.scenario.toLowerCase();
+  if (scenario.includes("grid") || scenario.includes("transformer") || scenario.includes("substation")) return "Primary Grid Operator";
+  if (scenario.includes("clinical") || scenario.includes("blood") || scenario.includes("therapy") || scenario.includes("medication")) return "accountable clinical authority";
+  if (scenario.includes("wire") || scenario.includes("loan") || scenario.includes("payment") || scenario.includes("fraud")) return "accountable financial authority";
+  if (scenario.includes("robot") || scenario.includes("crane") || scenario.includes("chemical")) return "responsible operations supervisor";
+  if (scenario.includes("certificate") || scenario.includes("deployment") || scenario.includes("kubernetes") || scenario.includes("database")) return "production change authority";
+  return "accountable continuation authority";
+}
+
+function RecommendationDecisionSplit({ rawLane, decisionLane, result }: { rawLane?: LaneResult; decisionLane?: LaneResult; result: CompareResponse }) {
+  const decision = decisionLane?.evaluation.decision ?? "UNKNOWN";
+  return (
+    <section className="splitDecision">
+      <div className="splitPane recommendationPane">
+        <span>Reasoning Engine</span>
+        <strong>Recommendation</strong>
+        <p>{layerSummary(rawLane)}</p>
+      </div>
+      <div className={`splitPane kernelPane ${decisionClass(decision)}`}>
+        <span>Execution Kernel</span>
+        <strong>{decisionText(decision)}</strong>
+        <p>{requiredActionForDecision(decisionLane).replace("accountable operator", executionTarget(result))}</p>
+      </div>
+    </section>
+  );
+}
+
 function ExecutionConsole({ result }: { result: CompareResponse }) {
   const governanceLane = result.lanes.find((lane) => lane.lane === "harmonic_governance");
   const harmonicLane = result.lanes.find((lane) => lane.lane === "harmonic");
@@ -733,60 +786,57 @@ function ExecutionConsole({ result }: { result: CompareResponse }) {
   const decision = decisionLane?.evaluation.decision ?? "UNKNOWN";
   const banner = decisionBanner(decision);
   const primitives = decisionLane?.evaluation.primitiveResults ?? [];
+  const requiredAction = requiredActionForDecision(decisionLane).replace("accountable operator", executionTarget(result));
 
   return (
-    <div className="executionConsole">
-      <section className={`kernelDecision ${decisionClass(decision)}`}>
+    <div className="executionConsole v61Console">
+      <section className={`kernelDecision executiveDecision ${decisionClass(decision)}`}>
         <div>
           <span className="consoleLabel">Constitutional Decision</span>
-          <h3>{banner.label}</h3>
-          <p>{decisionLane?.evaluation.summary || banner.detail}</p>
+          <h3>{decisionText(decision)}</h3>
+          <p>{banner.detail}</p>
         </div>
         <div className="decisionSeal">
-          <span>Decision</span>
-          <strong>{decisionText(decision)}</strong>
+          <span>Final State</span>
+          <strong>{banner.label}</strong>
         </div>
       </section>
 
-      <section className="requiredActionCard">
+      <section className="requiredActionCard executiveAction">
         <span>Required Action</span>
-        <strong>{requiredActionForDecision(decisionLane)}</strong>
+        <strong>{requiredAction}</strong>
       </section>
 
-      <section className="primitiveScanPanel">
+      <RecommendationDecisionSplit rawLane={rawLane} decisionLane={decisionLane} result={result} />
+
+      <section className="primitiveScanPanel executivePrimitives">
         <div className="consoleSectionHeader">
           <span>Primitive Scan</span>
-          <em>Reality · Authority · Consequence · Runtime</em>
+          <em>constitutional primitives evaluated before action</em>
         </div>
         {primitives.length ? (
           <div className="primitiveTable">
-            {primitives.map((primitive) => (
-              <div key={primitive.key} className={`primitiveTableRow ${primitive.admissible.toLowerCase()}`}>
-                <span className="primitiveGlyph">{outcomeGlyph(primitive)}</span>
-                <strong>{primitive.label}</strong>
-                <em>{primitive.outcome}</em>
-                <span className={`primitiveBadge ${primitive.admissible.toLowerCase()}`}>{primitive.admissible}</span>
-              </div>
-            ))}
+            {primitives.map((primitive) => {
+              const tone = primitiveStatusTone(primitive);
+              return (
+                <div key={primitive.key} className={`primitiveTableRow ${tone}`}>
+                  <span className="primitiveGlyph">{outcomeGlyph(primitive)}</span>
+                  <strong>{primitive.label}</strong>
+                  <em>{primitive.outcome}</em>
+                  <span className={`primitiveBadge ${tone === "fail" ? "fail" : tone === "pass" ? "pass" : "unknown"}`}>{tone.toUpperCase()}</span>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="muted">Primitive artifacts will appear when the Harmonic and Governance Pack endpoints return runtime results.</p>
         )}
       </section>
 
-      <details className="boundaryAnalysis">
-        <summary>Execution Boundary Analysis</summary>
-        <div className="laneStackCompact">
-          {result.lanes.map((lane) => (
-            <LaneCard key={lane.lane} lane={lane} />
-          ))}
-        </div>
-      </details>
-
-      <section className="modelConvergence">
+      <section className="architectureStrip" aria-label="Execution governance layers">
         <div>
           <span>Reasoning Engine</span>
-          <strong>{rawLane ? "LLM recommendation only" : "Pending"}</strong>
+          <strong>{rawLane ? "Recommendation only" : "Pending"}</strong>
         </div>
         <div>
           <span>Execution Stabilizer</span>
@@ -797,6 +847,15 @@ function ExecutionConsole({ result }: { result: CompareResponse }) {
           <strong>{decisionText(decision)}</strong>
         </div>
       </section>
+
+      <details className="boundaryAnalysis">
+        <summary>Execution Boundary Analysis</summary>
+        <div className="laneStackCompact">
+          {result.lanes.map((lane) => (
+            <LaneCard key={lane.lane} lane={lane} />
+          ))}
+        </div>
+      </details>
 
       <EngineeringView result={result} lane={decisionLane} />
     </div>
@@ -809,12 +868,12 @@ function InsightBar() {
       <div>
         <span className="insightIcon">♢</span>
         <strong>Same prompt</strong>
-        <p>The selected model sees the same scenario. Only the execution binding changes.</p>
+        <p>The selected model sees the same scenario. Only the execution binding changes; governance remains outside the model.</p>
       </div>
       <div>
         <span className="insightIcon">⚖</span>
         <strong>Layer roles</strong>
-        <p>Compare model recommendation, execution stabilization, and constitutional decision.</p>
+        <p>Reasoning, stabilization, and kernel authority remain visibly separate.</p>
       </div>
       <div>
         <span className="insightIcon">☷</span>
@@ -945,7 +1004,7 @@ export default function Home() {
             Harmonic Execution <span>Governance Console</span>
           </h1>
           <p className="lede">
-            Model-agnostic execution governance: compare recommendation, stabilization, and constitutional decision before action.
+            Model-agnostic execution governance: separate recommendation, stabilization, and constitutional execution authority before action.
           </p>
         </div>
         <ExecutionDiagram loading={loading} result={result} scanIndex={scanIndex} />
@@ -1029,11 +1088,11 @@ export default function Home() {
               checked={includeHarmonicOnly}
               onChange={(e) => setIncludeHarmonicOnly(e.target.checked)}
             />
-            Include Harmonic-only lane
+            Include Execution Stabilizer layer
           </label>
 
           <button onClick={runCompare} disabled={loading || !prompt.trim()}>
-            <span>{loading ? "Evaluating lanes" : result ? "Run again" : "Run live evaluation"}</span>
+            <span>{loading ? "Evaluating runtime" : result ? "Run again" : "Run live evaluation"}</span>
           </button>
 
           {error ? <p className="error">{error}</p> : null}
