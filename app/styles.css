@@ -1212,3 +1212,35 @@ pre {
     display: none;
   }
 }
+
+/* V35 model/scenario flexibility + favicon polish */
+.configGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.modelNote {
+  margin: -4px 0 2px;
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.inputPanel select,
+.inputPanel input,
+.inputPanel textarea {
+  min-height: 48px;
+}
+
+.inputPanel textarea::placeholder {
+  color: rgba(170, 182, 200, 0.58);
+}
+
+@media (min-width: 1181px) {
+  .configGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

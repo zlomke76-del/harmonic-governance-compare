@@ -11,8 +11,8 @@ export const metadata: Metadata = {
     "Raw LLM vs Harmonic vs Harmonic + Governance comparison harness for governing AI execution before consequence.",
   applicationName: "Harmonic Governance Compare",
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    shortcut: "/favicon.svg",
+    icon: [{ url: "/favicon.svg?v=35", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg?v=35",
   },
   robots: {
     index: true,
