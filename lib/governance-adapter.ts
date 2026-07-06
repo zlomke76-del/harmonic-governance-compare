@@ -145,7 +145,7 @@ function classifyExecutionContext(params: { prompt?: string; response?: string; 
     };
   }
 
-  if (hasAny("line speed", "vibration", "plc", "industrial automation", "production line", "robot", "work cell", "physical equipment", "bearing temperature")) {
+  if (hasAny("line speed", "vibration", "plc", "industrial automation", "production line", "robot", "work cell", "physical equipment", "bearing temperature", "transformer overheating", "electrical load", "substation", "grid controller")) {
     return {
       surface: "physical_process_control",
       consequenceLevel: "critical",
@@ -154,6 +154,30 @@ function classifyExecutionContext(params: { prompt?: string; response?: string; 
       shouldBlockExecution: hasAny("human entered", "human unexpectedly enters", "unguarded", "emergency stop"),
       shouldEscalate: true,
       reason: "Physical process control can create equipment, safety, or operational harm under abnormal sensor conditions."
+    };
+  }
+
+  if (hasAny("privileged role", "cached authorization token", "production access", "role was revoked", "privilege revoked", "grant production access")) {
+    return {
+      surface: "identity_authority",
+      consequenceLevel: "critical",
+      reversibility: "difficult_to_reverse",
+      requiresOperatorReview: true,
+      shouldBlockExecution: hasAny("role was revoked", "privileged role was revoked", "authority_lost"),
+      shouldEscalate: true,
+      reason: "Identity and privilege execution requires current authority at the moment access is granted."
+    };
+  }
+
+  if (hasAny("zero-day", "critical exploit", "firewall rule rollout", "production rollout", "deployment")) {
+    return {
+      surface: "cybersecurity_production_response",
+      consequenceLevel: "critical",
+      reversibility: "partially_reversible",
+      requiresOperatorReview: true,
+      shouldBlockExecution: false,
+      shouldEscalate: true,
+      reason: "Production security deployment became authority- and consequence-sensitive after new exploit evidence emerged."
     };
   }
 
