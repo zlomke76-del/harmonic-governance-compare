@@ -43,21 +43,21 @@ const LANE_COPY: Record<string, { tone: LaneTone; title: string; subtitle: strin
   },
   harmonic: {
     tone: "harmonic",
-    title: "Execution Stabilizer",
-    subtitle: "Harmonic stabilization · bounded continuation",
+    title: "Continuation Stabilizer",
+    subtitle: "Bounded stabilization · no constitutional authority",
     badge: "Stabilization layer",
     icon: "⬡"
   },
   harmonic_governance: {
     tone: "governance",
     title: "Constitutional Runtime",
-    subtitle: "Present-state admissibility · execution authority",
+    subtitle: "Present-state admissibility · bounded execution determination",
     badge: "Constitutional execution layer",
     icon: "⬢"
   }
 };
 
-const SCAN_LABELS = ["User input", "Reasoning Engine", "Recommendation", "Execution Stabilizer", "Constitutional Runtime", "Decision"];
+const SCAN_LABELS = ["User input", "Reasoning Engine", "Recommendation", "Continuation Stabilizer", "Constitutional Runtime", "Decision"];
 
 const CUSTOM_SCENARIO_ID = "custom";
 
@@ -1008,7 +1008,7 @@ function ExecutionConsole({ result }: { result: CompareResponse }) {
           <strong>{rawLane ? "Recommendation only" : "Pending"}</strong>
         </div>
         <div>
-          <span>Execution Stabilizer</span>
+          <span>Continuation Stabilizer</span>
           <strong>{harmonicLane ? decisionText(harmonicLane.evaluation.decision) : "Not included"}</strong>
         </div>
         <div>
@@ -1328,7 +1328,7 @@ export default function Home() {
               checked={includeHarmonicOnly}
               onChange={(e) => setIncludeHarmonicOnly(e.target.checked)}
             />
-            Include Execution Stabilizer layer
+            Include Continuation Stabilizer layer
           </label>
 
           <button onClick={runCompare} disabled={loading || !prompt.trim()}>
@@ -1344,7 +1344,7 @@ export default function Home() {
               <span>2</span>
               <h2>Execution decision</h2>
             </div>
-            {result ? <em>{result.model}</em> : <em>Results appear after run</em>}
+            {result ? <em>{result.model}</em> : <em>Possible outcomes: ADMIT · DENY · ESCALATE · DEFER\nResults appear after run</em>}
           </div>
 
           {loading ? (
