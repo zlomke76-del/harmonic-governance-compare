@@ -50,14 +50,14 @@ const LANE_COPY: Record<string, { tone: LaneTone; title: string; subtitle: strin
   },
   harmonic_governance: {
     tone: "governance",
-    title: "Execution Kernel",
-    subtitle: "Constitutional runtime · execution authority",
-    badge: "Governance kernel",
+    title: "Constitutional Runtime",
+    subtitle: "Present-state admissibility · execution authority",
+    badge: "Constitutional execution layer",
     icon: "⬢"
   }
 };
 
-const SCAN_LABELS = ["User input", "Reasoning Engine", "Recommendation", "Execution Stabilizer", "Execution Kernel", "Decision"];
+const SCAN_LABELS = ["User input", "Reasoning Engine", "Recommendation", "Execution Stabilizer", "Constitutional Runtime", "Decision"];
 
 const CUSTOM_SCENARIO_ID = "custom";
 
@@ -937,7 +937,7 @@ function RecommendationDecisionSplit({ rawLane, decisionLane, result }: { rawLan
         <p>{layerSummary(rawLane)}</p>
       </div>
       <div className={`splitPane kernelPane ${decisionClass(decision)}`}>
-        <span>Execution Kernel</span>
+        <span>Constitutional Runtime</span>
         <strong>{decisionText(decision)}</strong>
         <p>{requiredActionForDecision(decisionLane).replace("accountable operator", executionTarget(result))}</p>
       </div>
@@ -1012,7 +1012,7 @@ function ExecutionConsole({ result }: { result: CompareResponse }) {
           <strong>{harmonicLane ? decisionText(harmonicLane.evaluation.decision) : "Not included"}</strong>
         </div>
         <div>
-          <span>Execution Kernel</span>
+          <span>Constitutional Runtime</span>
           <strong>{decisionText(decision)}</strong>
         </div>
       </section>
@@ -1053,6 +1053,75 @@ function InsightBar() {
         <span className="insightIcon amber">▣</span>
         <strong>Safe by design</strong>
         <p>Use the harness to test model-agnostic execution governance before real action.</p>
+      </div>
+    </section>
+  );
+}
+
+
+function ConstitutionalJurisdiction() {
+  const packs = [
+    ["SolaceMed", "Healthcare authority, consent, evidence, capacity, and care obligations."],
+    ["SolaceLegal", "Client authority, jurisdiction, evidence, procedural posture, and professional duties."],
+    ["EU AI Act", "Article-level obligations mapped into runtime constitutional responsibilities."],
+    ["Financial Services", "Delegated authority, fiduciary duties, risk exposure, and settlement conditions."],
+    ["Defense", "Mission authority, rules of engagement, operational constraints, and consequence classes."],
+    ["Automotive", "Safety state, service authority, customer obligations, and operational execution limits."]
+  ];
+
+  return (
+    <section className="jurisdictionSection" aria-label="Harmonic constitutional jurisdiction">
+      <div className="jurisdictionLead">
+        <p className="eyebrow">Constitutional jurisdiction</p>
+        <h2>What Harmonic governs</h2>
+        <p>Harmonic determines whether a consequential action remains constitutionally admissible under the institution&apos;s present reality before consequence binds.</p>
+      </div>
+
+      <div className="jurisdictionGrid">
+        <article className="jurisdictionCard inScope">
+          <span className="jurisdictionKicker">Inside Harmonic</span>
+          <h3>Constitutional execution responsibility</h3>
+          <ul>
+            <li>Current authority and scope</li>
+            <li>Evidence and contradiction state</li>
+            <li>Continuity across material change</li>
+            <li>Applicable obligations and constraints</li>
+            <li>Present-state admissibility</li>
+            <li>Bound execution decision and receipt</li>
+          </ul>
+        </article>
+
+        <article className="jurisdictionCard outScope">
+          <span className="jurisdictionKicker">Outside Harmonic</span>
+          <h3>Domain intelligence remains sovereign</h3>
+          <ul>
+            <li>Clinical, legal, financial, or mission reasoning</li>
+            <li>Policy and constitutional authorship</li>
+            <li>Creation of institutional authority</li>
+            <li>Identity-provider administration</li>
+            <li>Customer workflow and user experience</li>
+            <li>Domain-specific judgment and expertise</li>
+          </ul>
+        </article>
+      </div>
+
+      <div className="constitutionalPath" aria-label="Constitutional execution path">
+        <span>Domain Intelligence</span><b>→</b><span>Stabilization</span><b>→</b><strong>Constitutional Runtime</strong><b>→</b><span>Execution</span>
+      </div>
+
+      <div className="packSection">
+        <div className="packHeading">
+          <span className="jurisdictionKicker">One runtime · many governance packs</span>
+          <h3>Specialize the mapping, not the constitutional substrate.</h3>
+        </div>
+        <div className="packGrid">
+          {packs.map(([name, description]) => (
+            <article key={name} className="packCard">
+              <strong>{name}</strong>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -1168,16 +1237,18 @@ export default function Home() {
 
       <section className="heroGrid">
         <div className="heroCopy">
-          <p className="eyebrow">Internal demo harness</p>
+          <p className="eyebrow">Constitutional execution infrastructure</p>
           <h1>
-            Harmonic Execution <span>Governance Console</span>
+            Harmonic Constitutional <span>Runtime Console</span>
           </h1>
           <p className="lede">
-            Model-agnostic execution governance: separate recommendation, stabilization, and constitutional execution authority before action.
+            Keep domain intelligence sovereign. Harmonic determines whether consequential execution remains admissible under the institution&apos;s present reality before consequence binds.
           </p>
         </div>
         <ExecutionDiagram loading={loading} result={result} scanIndex={scanIndex} />
       </section>
+
+      <ConstitutionalJurisdiction />
 
       <section className="workspace">
         <section className="panel inputPanel">
