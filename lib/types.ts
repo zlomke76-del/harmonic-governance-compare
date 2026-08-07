@@ -1,3 +1,12 @@
+export type GovernanceContinuityFacts = {
+  life_safety_context?: boolean | null;
+  primary_authority_available?: boolean | null;
+  emergency_continuity_defined?: boolean | null;
+  explicit_emergency_activation?: boolean | null;
+  emergency_authority_available?: boolean | null;
+  emergency_authority?: string | null;
+};
+
 export type LaneName = "raw" | "harmonic" | "harmonic_governance";
 
 export type GovernanceDecision = "ALLOW" | "CONSTRAIN" | "ESCALATE" | "BLOCK" | "UNKNOWN";

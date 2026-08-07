@@ -2,6 +2,7 @@ import type {
   GovernanceDecision,
   GovernanceEvaluation,
   GovernanceSignal,
+  GovernanceContinuityFacts,
   LaneName,
   PrimitiveAdmissibility,
   PrimitiveResult
@@ -493,6 +494,7 @@ function buildGovernancePackPayload(params: {
   prompt: string;
   response: string;
   scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
 }) {
   const now = new Date().toISOString();
   const context = classifyExecutionContext(params);
@@ -509,7 +511,16 @@ function buildGovernancePackPayload(params: {
     scenario_prompt: params.prompt,
     scenario_label: params.scenario,
 
-    continuity: deriveContinuityHints(params.prompt),
+    continuity: params.governanceFacts
+      ? {
+          life_safety_context: params.governanceFacts.life_safety_context ?? null,
+          primary_authority_available: params.governanceFacts.primary_authority_available ?? null,
+          emergency_continuity_defined: params.governanceFacts.emergency_continuity_defined ?? null,
+          explicit_emergency_activation: params.governanceFacts.explicit_emergency_activation ?? null,
+          emergency_authority_available: params.governanceFacts.emergency_authority_available ?? null,
+          emergency_authority: params.governanceFacts.emergency_authority ?? null
+        }
+      : deriveContinuityHints(params.prompt),
 
     requested_action: {
       type: actionType,
@@ -560,6 +571,7 @@ function buildPayload(params: {
   prompt: string;
   response: string;
   scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
 }) {
   if (params.lane === "harmonic") {
     return buildHarmonicOnlyPayload(params);
@@ -616,6 +628,7 @@ export async function evaluateGovernance(params: {
   prompt: string;
   response: string;
   scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
 }): Promise<GovernanceEvaluation> {
   if (params.lane === "raw") {
     return {
