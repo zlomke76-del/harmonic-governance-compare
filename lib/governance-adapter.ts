@@ -495,6 +495,7 @@ function buildGovernancePackPayload(params: {
   response: string;
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
+  outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
   const now = new Date().toISOString();
   const context = classifyExecutionContext(params);
@@ -664,7 +665,11 @@ async function validateEmergencyEvidenceChain(params: {
   const enabled = process.env.HARMONIC_V2_EVIDENCE_CHAIN_VALIDATION === "true";
   if (!enabled) return { enabled: false, status: "not_requested" };
 
-  const facts = params.governanceFacts || {};
+  // Use the exact structured continuity object that was transmitted to Governance Pack.
+  // This is captured before the determination and therefore cannot be contaminated by the result.
+  // UI fixture facts remain the preferred source; the outbound request witness is the authoritative fallback
+  // for custom scenarios that were deterministically structured by the adapter.
+  const facts: GovernanceContinuityFacts = params.governanceFacts || params.outboundContinuity || {};
   const finalDecision = getString(
     firstPresent(
       asRecord(params.governanceArtifact.response_binding)?.final_decision,
@@ -714,6 +719,7 @@ async function validateEmergencyEvidenceChain(params: {
       source: "harmonic-governance-compare",
       scenario: params.scenario,
       validation_mode: "emergency_continuity_evidence_chain",
+      structured_fact_source: params.governanceFacts ? "frozen_fixture" : "governance_pack_outbound_witness",
       expected_governance_pack_decision: finalDecision,
       explicit_non_claims: [
         "The harness does not assert that execution occurred.",
@@ -885,7 +891,8 @@ export async function evaluateGovernance(params: {
             key,
             prompt: params.prompt,
             scenario: params.scenario,
-            governanceFacts: params.governanceFacts
+            governanceFacts: params.governanceFacts,
+            outboundContinuity: requestWitness.continuity
           })
         : { enabled: false, status: "not_applicable" };
 
