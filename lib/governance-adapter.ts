@@ -26,6 +26,10 @@ function normalizeDecision(value: unknown): GovernanceDecision {
     return "ESCALATE";
   }
 
+  if (["EMERGENCY_CONTINUITY", "EMERGENCY_CONTINUITY_REQUIRED", "PENDING_EMERGENCY_CONTINUITY_ACTIVATION"].includes(normalized)) {
+    return "EMERGENCY_CONTINUITY";
+  }
+
   if (["BLOCK", "BLOCKED", "DENY", "DENIED", "REFUSE", "REFUSED", "FAIL", "FAILED", "INADMISSIBLE", "CONTACT_LOST", "BOUNDARY_CRITICAL"].includes(normalized)) {
     return "BLOCK";
   }
@@ -299,6 +303,7 @@ function decisionFromArtifact(json: Record<string, unknown>): GovernanceDecision
   }
 
   if (executionBoundary) {
+    if (executionBoundary.requires_emergency_continuity === true) return "EMERGENCY_CONTINUITY";
     if (executionBoundary.should_block_execution === true) return "BLOCK";
     if (executionBoundary.requires_escalation === true) return "ESCALATE";
     if (executionBoundary.requires_constraint === true) return "CONSTRAIN";

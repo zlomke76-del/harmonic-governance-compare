@@ -9,7 +9,7 @@ export type GovernanceContinuityFacts = {
 
 export type LaneName = "raw" | "harmonic" | "harmonic_governance";
 
-export type GovernanceDecision = "ALLOW" | "CONSTRAIN" | "ESCALATE" | "BLOCK" | "UNKNOWN";
+export type GovernanceDecision = "ALLOW" | "CONSTRAIN" | "ESCALATE" | "EMERGENCY_CONTINUITY" | "BLOCK" | "UNKNOWN";
 
 export type PrimitiveAdmissibility = "PASS" | "FAIL" | "UNKNOWN";
 
