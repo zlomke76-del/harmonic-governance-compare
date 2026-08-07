@@ -917,7 +917,21 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     { label: "Governance Pack", value: String(raw.version || raw.governance_pack_version || raw.package_version || "constitutional-runtime-vNext") },
     { label: "Execution Binding", value: lane ? `${lane.title} → ${decisionText(lane.evaluation.decision)}` : "Pending" },
     { label: "Primitive Hashes", value: primitiveHashes },
-    { label: "Artifact Lineage", value: "T0 Recommendation Created → T1 Reality Changed → T2 Execution Requested → T3 Constitutional Runtime → T4 Execution Decision" }
+    { label: "Artifact Lineage", value: "T0 Recommendation Created → T1 Reality Changed → T2 Execution Requested → T3 Constitutional Runtime → T4 Execution Decision" },
+    {
+      label: "V2 Evidence Chain",
+      value: (() => {
+        const chain = raw.v2_evidence_chain_validation && typeof raw.v2_evidence_chain_validation === "object"
+          ? raw.v2_evidence_chain_validation as Record<string, unknown>
+          : null;
+        if (!chain) return "Not evaluated";
+        const status = String(chain.status || "unknown");
+        const snapshot = chain.snapshot_id ? "snapshot ✓" : "snapshot —";
+        const determination = chain.determination_id ? "determination ✓" : "determination —";
+        const receipt = chain.receipt_id ? "receipt ✓" : "receipt —";
+        return `${status} · ${snapshot} · ${determination} · ${receipt}`;
+      })()
+    }
   ];
 
   return (
