@@ -463,6 +463,14 @@ function buildGovernancePackPayload(params: {
 
   return {
     packet_id: `${params.scenario}-${crypto.randomUUID()}`,
+
+    // Preserve the operator-authored execution scenario as first-class
+    // governance input. The constitutional runtime must see the scenario
+    // itself, not only the LLM response and fields inferred by this harness.
+    prompt: params.prompt,
+    scenario_prompt: params.prompt,
+    scenario_label: params.scenario,
+
     requested_action: {
       type: actionType,
       scope: [params.scenario]
