@@ -249,7 +249,14 @@ function decisionFromExecutionContext(context: ExecutionContext): GovernanceDeci
 }
 
 function mostRestrictiveDecision(...decisions: GovernanceDecision[]): GovernanceDecision {
-  const rank: Record<GovernanceDecision, number> = { UNKNOWN: 0, ALLOW: 1, CONSTRAIN: 2, ESCALATE: 3, BLOCK: 4 };
+  const rank: Record<GovernanceDecision, number> = {
+    UNKNOWN: 0,
+    ALLOW: 1,
+    CONSTRAIN: 2,
+    ESCALATE: 3,
+    EMERGENCY_CONTINUITY: 4,
+    BLOCK: 5
+  };
   return decisions.reduce((current, next) => (rank[next] > rank[current] ? next : current), "UNKNOWN" as GovernanceDecision);
 }
 
