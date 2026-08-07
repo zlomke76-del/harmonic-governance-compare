@@ -590,6 +590,27 @@ function summarizeResponse(json: Record<string, unknown>, fallback: string): str
   return pieces.join(" ");
 }
 
+function buildGovernanceRequestWitness(payload: unknown) {
+  const packet = asRecord(payload) || {};
+  const continuity = asRecord(packet.continuity) || {};
+
+  return {
+    adapter_build: "v2-structured-emergency-continuity-witness-2026-08-07",
+    packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
+    prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
+    scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
+    scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
+    continuity: {
+      life_safety_context: continuity.life_safety_context ?? null,
+      primary_authority_available: continuity.primary_authority_available ?? null,
+      emergency_continuity_defined: continuity.emergency_continuity_defined ?? null,
+      explicit_emergency_activation: continuity.explicit_emergency_activation ?? null,
+      emergency_authority_available: continuity.emergency_authority_available ?? null,
+      emergency_authority: continuity.emergency_authority ?? null
+    }
+  };
+}
+
 export async function evaluateGovernance(params: {
   lane: LaneName;
   prompt: string;
@@ -617,13 +638,32 @@ export async function evaluateGovernance(params: {
   }
 
   try {
+    const outboundPayload = buildPayload(params);
+    const requestWitness = buildGovernanceRequestWitness(outboundPayload);
+
+    if (
+      params.lane === "harmonic_governance" &&
+      requestWitness.continuity.life_safety_context === true &&
+      /emergency[- ]continuity/i.test(params.prompt)
+    ) {
+      const continuity = requestWitness.continuity;
+      if (
+        continuity.primary_authority_available !== false ||
+        continuity.emergency_continuity_defined !== true ||
+        continuity.explicit_emergency_activation !== true
+      ) {
+        throw new Error("Emergency continuity scenario was not converted into the required structured governance state.");
+      }
+    }
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`
+        Authorization: `Bearer ${key}`,
+        "X-Harmonic-Harness-Build": "v2-structured-emergency-continuity-witness-2026-08-07"
       },
-      body: JSON.stringify(buildPayload(params))
+      body: JSON.stringify(outboundPayload)
     });
 
     const text = await res.text();
@@ -672,7 +712,10 @@ export async function evaluateGovernance(params: {
         firstPresent(json.flags, json.warnings, json.findings, json.issues, json.violations)
       ),
       primitiveResults,
-      raw: json
+      raw: {
+        ...json,
+        harness_request_witness: requestWitness
+      }
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown governance adapter error.";
