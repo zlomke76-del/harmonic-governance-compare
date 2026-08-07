@@ -673,6 +673,7 @@ async function validateEmergencyEvidenceChain(params: {
   prompt: string;
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
+  outboundContinuity?: GovernanceContinuityFacts;
 }) {
   const enabled = process.env.HARMONIC_V2_EVIDENCE_CHAIN_VALIDATION === "true";
   if (!enabled) return { enabled: false, status: "not_requested" };
