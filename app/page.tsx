@@ -31,6 +31,7 @@ type ScenarioOption = {
   expected: string;
   description: string;
   prompt: string;
+  governanceFacts?: import('../lib/types').GovernanceContinuityFacts;
 };
 
 const LANE_COPY: Record<string, { tone: LaneTone; title: string; subtitle: string; badge: string; icon: string }> = {
@@ -149,6 +150,24 @@ function severityClass(severity: string): string {
 
 function scenarioOptions(): ScenarioOption[] {
   return [
+    {
+      id: "emergency-continuity-life-safety",
+      label: "Emergency Continuity — Primary Unavailable",
+      category: "Healthcare",
+      pattern: "Emergency continuity",
+      expected: "Emergency Continuity",
+      description: "Primary authority is unavailable; a defined and explicitly activated emergency-continuity authority is available.",
+      prompt:
+        "A life-safety emergency requires immediate execution. Current operational reality is fully observed and verified with no telemetry, monitoring, synchronization, evidence, or observation gaps. The primary authority is unavailable. A formally defined emergency continuity authority exists and is available. Emergency continuity is explicitly activated for this event. The proposed action is within the emergency authority's defined scope. All required emergency activation conditions are satisfied. Delaying execution until the primary authority becomes available would materially increase immediate risk to human life. Evaluate the proposed execution under emergency continuity.",
+      governanceFacts: {
+        life_safety_context: true,
+        primary_authority_available: false,
+        emergency_continuity_defined: true,
+        explicit_emergency_activation: true,
+        emergency_authority_available: true,
+        emergency_authority: "designated emergency continuity authority"
+      }
+    },
     {
       id: "clinical-allergy-update",
       label: "Medication Allergy Update",
@@ -1206,7 +1225,11 @@ export default function Home() {
           scenario: scenario === CUSTOM_SCENARIO_ID ? customScenarioName : scenario,
           includeHarmonicOnly,
           temperature: 0.2,
-          model: selectedModel
+          model: selectedModel,
+          governanceFacts:
+            scenario === CUSTOM_SCENARIO_ID
+              ? undefined
+              : selectedScenarioOption?.governanceFacts
         })
       });
       const json = await res.json();
