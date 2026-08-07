@@ -623,6 +623,91 @@ function buildGovernanceRequestWitness(payload: unknown) {
   };
 }
 
+
+async function callV2EvidenceEndpoint(path: string, key: string, body?: unknown, method = "POST") {
+  const base = (process.env.HARMONIC_V2_API_BASE_URL || "https://www.solace-harmonic.com").replace(/\/+$/, "");
+  const res = await fetch(`${base}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "X-Harmonic-Harness-Build": "v2.3-emergency-evidence-chain-validation-2026-08-07"
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = text ? JSON.parse(text) as Record<string, unknown> : {}; }
+  catch { json = { raw_text: text }; }
+  if (!res.ok) throw new Error(`V2 evidence endpoint ${path} returned HTTP ${res.status}: ${text}`);
+  return json;
+}
+
+function idFrom(value: unknown, ...keys: string[]): string | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate) return candidate;
+  }
+  return null;
+}
+
+async function validateEmergencyEvidenceChain(params: {
+  packetId: string;
+  governanceArtifact: Record<string, unknown>;
+  key: string;
+}) {
+  const enabled = process.env.HARMONIC_V2_EVIDENCE_CHAIN_VALIDATION === "true";
+  if (!enabled) return { enabled: false, status: "not_requested" };
+
+  const evaluation = await callV2EvidenceEndpoint("/api/v2/evaluate", params.key, {
+    packet_id: params.packetId,
+    governance_artifact: params.governanceArtifact,
+    evidence: [],
+    metadata: {
+      source: "harmonic-governance-compare",
+      validation_mode: "emergency_continuity_evidence_chain"
+    }
+  });
+
+  const snapshot = asRecord(evaluation.snapshot) || asRecord(evaluation.state_snapshot);
+  const determination = asRecord(evaluation.determination) || asRecord(evaluation.constitutional_determination);
+  const receipt = asRecord(evaluation.receipt) || asRecord(evaluation.constitutional_receipt);
+
+  const snapshotId = idFrom(snapshot, "snapshot_id", "id");
+  const determinationId = idFrom(determination, "determination_id", "id");
+  const receiptId = idFrom(receipt, "receipt_id", "id");
+
+  if (!snapshotId || !determinationId || !receiptId) {
+    return {
+      enabled: true,
+      status: "persistence_incomplete",
+      snapshot_id: snapshotId,
+      determination_id: determinationId,
+      receipt_id: receiptId,
+      evaluate: evaluation
+    };
+  }
+
+  // Do not fabricate execution or effect evidence in the harness.
+  // The first replay MUST remain pending until an external executor supplies it.
+  const replay = await callV2EvidenceEndpoint("/api/v2/replay", params.key, {
+    packet_id: params.packetId,
+    receipt_id: receiptId,
+    determination_id: determinationId
+  });
+
+  return {
+    enabled: true,
+    status: "awaiting_external_execution_evidence",
+    snapshot_id: snapshotId,
+    determination_id: determinationId,
+    receipt_id: receiptId,
+    replay
+  };
+}
+
 export async function evaluateGovernance(params: {
   lane: LaneName;
   prompt: string;
@@ -712,6 +797,20 @@ export async function evaluateGovernance(params: {
             params.lane === "harmonic_governance" ? decisionFromExecutionContext(classifyExecutionContext(params)) : "UNKNOWN"
           );
 
+    const evidenceChain =
+      params.lane === "harmonic_governance" &&
+      String(firstPresent(
+        asRecord(json.response_binding)?.final_decision,
+        json.outcome,
+        json.action
+      ) || "").toUpperCase().includes("EMERGENCY_CONTINUITY")
+        ? await validateEmergencyEvidenceChain({
+            packetId: getString(json.packet_id, getString((outboundPayload as Record<string, unknown>).packet_id, "unknown-packet")),
+            governanceArtifact: json,
+            key
+          })
+        : { enabled: false, status: "not_applicable" };
+
     return {
       available: true,
       decision,
@@ -727,7 +826,8 @@ export async function evaluateGovernance(params: {
       primitiveResults,
       raw: {
         ...json,
-        harness_request_witness: requestWitness
+        harness_request_witness: requestWitness,
+        v2_evidence_chain_validation: evidenceChain
       }
     };
   } catch (err) {
