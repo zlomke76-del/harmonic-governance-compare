@@ -657,26 +657,94 @@ async function validateEmergencyEvidenceChain(params: {
   packetId: string;
   governanceArtifact: Record<string, unknown>;
   key: string;
+  prompt: string;
+  scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
 }) {
   const enabled = process.env.HARMONIC_V2_EVIDENCE_CHAIN_VALIDATION === "true";
   if (!enabled) return { enabled: false, status: "not_requested" };
 
-  const evaluation = await callV2EvidenceEndpoint("/api/v2/evaluate", params.key, {
+  const facts = params.governanceFacts || {};
+  const finalDecision = getString(
+    firstPresent(
+      asRecord(params.governanceArtifact.response_binding)?.final_decision,
+      params.governanceArtifact.outcome,
+      params.governanceArtifact.action
+    ),
+    "EMERGENCY_CONTINUITY"
+  );
+
+  // Construct the V2 enterprise packet from the same frozen fixture facts.
+  // Do not infer or add favorable facts from the returned determination.
+  const enterprisePacket = {
     packet_id: params.packetId,
-    governance_artifact: params.governanceArtifact,
-    evidence: [],
+    subject: {
+      type: "institutional_execution_request",
+      id: `subject:${params.packetId}`
+    },
+    action: {
+      type: "emergency_continuity_execution",
+      description: params.prompt,
+      consequence_level: "high",
+      scope: "Frozen emergency-continuity validation fixture"
+    },
+    context: {
+      domain: "life_safety",
+      workflow: "emergency_continuity_validation",
+      consequence_level: "high",
+      potential_harms: ["Material increase in immediate risk to human life if execution is improperly delayed or improperly authorized."]
+    },
+    authority: {
+      responsible_actor: facts.emergency_authority || "designated emergency continuity authority",
+      primary_authority_available: facts.primary_authority_available ?? null,
+      emergency_continuity_defined: facts.emergency_continuity_defined ?? null,
+      explicit_emergency_activation: facts.explicit_emergency_activation ?? null,
+      emergency_authority_available: facts.emergency_authority_available ?? null,
+      basis: "Frozen emergency-continuity fixture facts supplied before determination",
+      human_override_available: true
+    },
+    evidence: {
+      claims: [],
+      observations: [],
+      items: [],
+      unresolved_contradictions: []
+    },
+    dependencies: {},
     metadata: {
       source: "harmonic-governance-compare",
-      validation_mode: "emergency_continuity_evidence_chain"
+      scenario: params.scenario,
+      validation_mode: "emergency_continuity_evidence_chain",
+      expected_governance_pack_decision: finalDecision,
+      explicit_non_claims: [
+        "The harness does not assert that execution occurred.",
+        "The harness does not fabricate an execution-attempt witness or outcome witness.",
+        "The V2 persistence call is a separate constitutional evaluation of the frozen fixture, not a mutation of the prior Governance Pack artifact."
+      ],
+      legacy_packet: {
+        continuity: {
+          life_safety_context: facts.life_safety_context ?? null,
+          primary_authority_available: facts.primary_authority_available ?? null,
+          emergency_continuity_defined: facts.emergency_continuity_defined ?? null,
+          explicit_emergency_activation: facts.explicit_emergency_activation ?? null,
+          emergency_authority_available: facts.emergency_authority_available ?? null,
+          emergency_authority: facts.emergency_authority ?? null
+        },
+        scenario_prompt: params.prompt,
+        prompt: params.prompt
+      }
     }
-  });
+  };
 
-  const snapshot = asRecord(evaluation.snapshot) || asRecord(evaluation.state_snapshot);
-  const determination = asRecord(evaluation.determination) || asRecord(evaluation.constitutional_determination);
-  const receipt = asRecord(evaluation.receipt) || asRecord(evaluation.constitutional_receipt);
+  const evaluation = await callV2EvidenceEndpoint("/api/v2/evaluate", params.key, enterprisePacket);
 
-  const snapshotId = idFrom(snapshot, "snapshot_id", "id");
-  const determinationId = idFrom(determination, "determination_id", "id");
+  const constitutionalDetermination =
+    asRecord(evaluation.constitutional_determination) || asRecord(evaluation.determination);
+  const receipt = asRecord(evaluation.constitutional_receipt) || asRecord(evaluation.receipt);
+  const evidence = asRecord(evaluation.evidence);
+  const runtimeSnapshot = asRecord(evidence?.runtime_input_snapshot);
+
+  const snapshotId = idFrom(runtimeSnapshot, "id", "snapshot_id");
+  const determinationId = idFrom(constitutionalDetermination, "determination_id", "id");
   const receiptId = idFrom(receipt, "receipt_id", "id");
 
   if (!snapshotId || !determinationId || !receiptId) {
@@ -686,24 +754,31 @@ async function validateEmergencyEvidenceChain(params: {
       snapshot_id: snapshotId,
       determination_id: determinationId,
       receipt_id: receiptId,
+      enterprise_packet: enterprisePacket,
       evaluate: evaluation
     };
   }
 
-  // Do not fabricate execution or effect evidence in the harness.
-  // The first replay MUST remain pending until an external executor supplies it.
-  const replay = await callV2EvidenceEndpoint("/api/v2/replay", params.key, {
-    packet_id: params.packetId,
-    receipt_id: receiptId,
-    determination_id: determinationId
-  });
+  // Replay API takes receipt_id as a query parameter. No execution evidence is fabricated.
+  const replay = await callV2EvidenceEndpoint(
+    `/api/v2/replay?receipt_id=${encodeURIComponent(receiptId)}`,
+    params.key,
+    {}
+  );
+  const replayRecord = asRecord(replay.replay_record);
+  const replayStatus = getString(replayRecord?.status, "unknown");
 
   return {
     enabled: true,
-    status: "awaiting_external_execution_evidence",
+    status: replayStatus === "pending_execution_evidence"
+      ? "awaiting_external_execution_evidence"
+      : `replay_${replayStatus}`,
     snapshot_id: snapshotId,
     determination_id: determinationId,
     receipt_id: receiptId,
+    replay_status: replayStatus,
+    missing_requirements: replayRecord?.missing_requirements || [],
+    enterprise_packet_witness: enterprisePacket,
     replay
   };
 }
@@ -807,7 +882,10 @@ export async function evaluateGovernance(params: {
         ? await validateEmergencyEvidenceChain({
             packetId: getString(json.packet_id, getString((outboundPayload as Record<string, unknown>).packet_id, "unknown-packet")),
             governanceArtifact: json,
-            key
+            key,
+            prompt: params.prompt,
+            scenario: params.scenario,
+            governanceFacts: params.governanceFacts
           })
         : { enabled: false, status: "not_applicable" };
 
