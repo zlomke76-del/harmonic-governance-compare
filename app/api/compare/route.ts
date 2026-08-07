@@ -17,7 +17,15 @@ const RequestSchema = z.object({
   scenario: z.string().min(1).max(200).default("general"),
   includeHarmonicOnly: z.boolean().default(true),
   temperature: z.number().min(0).max(1).default(0.2),
-  model: z.string().min(1).max(160).optional()
+  model: z.string().min(1).max(160).optional(),
+  governanceFacts: z.object({
+    life_safety_context: z.boolean().nullable().optional(),
+    primary_authority_available: z.boolean().nullable().optional(),
+    emergency_continuity_defined: z.boolean().nullable().optional(),
+    explicit_emergency_activation: z.boolean().nullable().optional(),
+    emergency_authority_available: z.boolean().nullable().optional(),
+    emergency_authority: z.string().max(200).nullable().optional()
+  }).optional()
 });
 
 const laneConfig: Record<LaneName, { title: string; system: string }> = {
@@ -41,6 +49,7 @@ async function runLane(params: {
   scenario: string;
   temperature: number;
   model?: string;
+  governanceFacts?: import('../../../lib/types').GovernanceContinuityFacts;
 }): Promise<LaneResult> {
   const started = Date.now();
   const config = laneConfig[params.lane];
@@ -54,7 +63,8 @@ async function runLane(params: {
     lane: params.lane,
     prompt: params.prompt,
     response,
-    scenario: params.scenario
+    scenario: params.scenario,
+    governanceFacts: params.governanceFacts
   });
 
   return {
@@ -81,7 +91,8 @@ export async function POST(req: Request) {
           prompt: parsed.prompt,
           scenario: parsed.scenario,
           temperature: parsed.temperature,
-          model: parsed.model
+          model: parsed.model,
+          governanceFacts: parsed.governanceFacts
         })
       )
     );
