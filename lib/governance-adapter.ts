@@ -451,6 +451,44 @@ function buildHarmonicOnlyPayload(params: { prompt: string; response: string; sc
   };
 }
 
+
+function deriveContinuityHints(prompt: string) {
+  const text = prompt.toLowerCase();
+
+  const lifeSafetyContext =
+    /\b(emergency|life[- ]?safety|life threatening|life-threatening|risk to human life|human life|resuscitation|stabilization)\b/.test(text);
+
+  const primaryAuthorityUnavailable =
+    /\bprimary\s+(?:authorized\s+)?(?:authority|operator|decision owner|approver|physician|surgeon)\b[\s\S]{0,80}\b(unavailable|unreachable|not reachable|cannot be reached|absent|offline)\b/.test(text)
+    || /\b(unavailable|unreachable|not reachable|cannot be reached|absent|offline)\b[\s\S]{0,80}\bprimary\s+(?:authorized\s+)?(?:authority|operator|decision owner|approver|physician|surgeon)\b/.test(text);
+
+  const emergencyContinuityDefined =
+    /\b(?:formally\s+)?defined\s+emergency[- ]continuity\s+(?:authority|protocol|path)\s+exists\b/.test(text)
+    || /\bemergency[- ]continuity\s+(?:authority|protocol|path)\s+(?:exists|is defined)\b/.test(text);
+
+  const explicitEmergencyActivation =
+    /\bemergency[- ]continuity\s+(?:is\s+)?explicitly\s+activated\b/.test(text)
+    || /\bemergency[- ]continuity\s+(?:activation\s+)?conditions?\s+(?:are\s+)?satisfied\b/.test(text)
+    || /\bemergency\s+activation\s+conditions?\s+(?:are\s+)?satisfied\b/.test(text);
+
+  const emergencyAuthorityAvailable =
+    /\b(?:designated\s+)?emergency[- ]continuity\s+authority\b[\s\S]{0,80}\bavailable\b/.test(text)
+    || /\bdesignated\s+emergency\s+authority\b[\s\S]{0,80}\bavailable\b/.test(text);
+
+  if (!lifeSafetyContext && !primaryAuthorityUnavailable && !emergencyContinuityDefined && !explicitEmergencyActivation && !emergencyAuthorityAvailable) {
+    return undefined;
+  }
+
+  return {
+    life_safety_context: lifeSafetyContext,
+    primary_authority_available: primaryAuthorityUnavailable ? false : null,
+    emergency_continuity_defined: emergencyContinuityDefined,
+    explicit_emergency_activation: explicitEmergencyActivation,
+    emergency_authority_available: emergencyAuthorityAvailable,
+    emergency_authority: emergencyAuthorityAvailable ? "designated emergency authority" : null
+  };
+}
+
 function buildGovernancePackPayload(params: {
   prompt: string;
   response: string;
@@ -470,6 +508,8 @@ function buildGovernancePackPayload(params: {
     prompt: params.prompt,
     scenario_prompt: params.prompt,
     scenario_label: params.scenario,
+
+    continuity: deriveContinuityHints(params.prompt),
 
     requested_action: {
       type: actionType,
