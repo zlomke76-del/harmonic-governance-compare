@@ -615,6 +615,23 @@ function summarizeResponse(json: Record<string, unknown>, fallback: string): str
   return pieces.join(" ");
 }
 
+function asGovernanceContinuityFacts(value: unknown): GovernanceContinuityFacts {
+  const record = asRecord(value) || {};
+  const boolOrNull = (v: unknown): boolean | null | undefined =>
+    typeof v === "boolean" ? v : v === null ? null : undefined;
+  const stringOrNull = (v: unknown): string | null | undefined =>
+    typeof v === "string" ? v : v === null ? null : undefined;
+
+  return {
+    life_safety_context: boolOrNull(record.life_safety_context),
+    primary_authority_available: boolOrNull(record.primary_authority_available),
+    emergency_continuity_defined: boolOrNull(record.emergency_continuity_defined),
+    explicit_emergency_activation: boolOrNull(record.explicit_emergency_activation),
+    emergency_authority_available: boolOrNull(record.emergency_authority_available),
+    emergency_authority: stringOrNull(record.emergency_authority)
+  };
+}
+
 function buildGovernanceRequestWitness(payload: unknown) {
   const packet = asRecord(payload) || {};
   const continuity = asRecord(packet.continuity) || {};
@@ -905,7 +922,7 @@ export async function evaluateGovernance(params: {
             prompt: params.prompt,
             scenario: params.scenario,
             governanceFacts: params.governanceFacts,
-            outboundContinuity: requestWitness.continuity
+            outboundContinuity: asGovernanceContinuityFacts(requestWitness.continuity)
           })
         : { enabled: false, status: "not_applicable" };
 
