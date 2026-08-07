@@ -79,6 +79,7 @@ function decisionText(decision: GovernanceDecision): string {
   if (decision === "ALLOW") return "Allow";
   if (decision === "CONSTRAIN") return "Constrain";
   if (decision === "ESCALATE") return "Escalate";
+  if (decision === "EMERGENCY_CONTINUITY") return "Emergency Continuity";
   if (decision === "BLOCK") return "Block";
   return "Unknown";
 }
@@ -87,6 +88,7 @@ function decisionBanner(decision: GovernanceDecision): { label: string; detail: 
   if (decision === "ALLOW") return { label: "CONTINUE", detail: "Execution may proceed under the evaluated state." };
   if (decision === "CONSTRAIN") return { label: "CONSTRAIN", detail: "Execution may continue only inside the evaluated constraints." };
   if (decision === "ESCALATE") return { label: "ESCALATE", detail: "Execution boundary crossed. Transfer continuation authority before action." };
+  if (decision === "EMERGENCY_CONTINUITY") return { label: "EMERGENCY CONTINUITY", detail: "Ordinary execution is not authorized. Continuation may proceed only through the explicitly activated emergency-continuity authority path." };
   if (decision === "BLOCK") return { label: "BLOCK", detail: "Execution is inadmissible under the current constitutional state." };
   return { label: "Pending evaluation", detail: "No execution decision has been bound yet." };
 }
@@ -124,6 +126,7 @@ function decisionClass(decision: GovernanceDecision): string {
   if (decision === "ALLOW") return "decisionAllow";
   if (decision === "CONSTRAIN") return "decisionConstrain";
   if (decision === "ESCALATE") return "decisionEscalate";
+  if (decision === "EMERGENCY_CONTINUITY") return "decisionConstrain";
   if (decision === "BLOCK") return "decisionBlock";
   return "decisionUnknown";
 }
@@ -132,6 +135,7 @@ function decisionRisk(decision: GovernanceDecision): { label: string; className:
   if (decision === "ALLOW") return { label: "Low", className: "riskLow" };
   if (decision === "CONSTRAIN") return { label: "Medium", className: "riskMedium" };
   if (decision === "ESCALATE") return { label: "Review", className: "riskReview" };
+  if (decision === "EMERGENCY_CONTINUITY") return { label: "Emergency", className: "riskReview" };
   if (decision === "BLOCK") return { label: "High", className: "riskHigh" };
   return { label: "Unknown", className: "riskUnknown" };
 }
@@ -722,6 +726,7 @@ function requiredActionForDecision(lane?: LaneResult): string {
   if (decision === "ALLOW") return "Continue execution under the current authorization and evidence state.";
   if (decision === "CONSTRAIN") return `Continue only inside the constrained boundary${failedLabels ? `: ${failedLabels}` : ""}. Revalidate changed conditions before expansion.`;
   if (decision === "ESCALATE") return "Transfer continuation authority to the accountable operator. Execution remains suspended until authority resolution occurs.";
+  if (decision === "EMERGENCY_CONTINUITY") return "Do not execute through the ordinary path. Activate and preserve the explicitly authorized emergency-continuity path before consequential execution.";
   if (decision === "BLOCK") return "Do not execute. Preserve the packet, stop the action, and require a new admissible authorization path.";
   return "No constitutional execution decision has been bound yet.";
 }
@@ -783,6 +788,13 @@ function continuityStatus(decision: GovernanceDecision): { label: string; detail
       label: "Execution Continuity Broken",
       detail: "The recommendation may still be sensible, but continuation authority must transfer before action.",
       executionState: "NON-EXECUTABLE"
+    };
+  }
+  if (decision === "EMERGENCY_CONTINUITY") {
+    return {
+      label: "Emergency Continuity Required",
+      detail: "Ordinary continuation is unavailable; execution may proceed only through the explicitly activated emergency-continuity authority path.",
+      executionState: "EMERGENCY-CONTINUITY"
     };
   }
   if (decision === "BLOCK") {
