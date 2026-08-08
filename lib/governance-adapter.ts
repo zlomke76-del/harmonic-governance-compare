@@ -10,8 +10,7 @@ import type {
   PrimitiveResult
 } from "./types";
 
-const DEFAULT_HARMONIC_ONLY_API_URL = "https://www.solace-harmonic.com/api/evaluate";
-const DEFAULT_HARMONIC_GOVERNANCE_API_URL = "https://www.solace-harmonic.com/api/governance-pack";
+const DEFAULT_HARMONIC_API_URL = "https://www.solace-harmonic.com/api/evaluate";
 
 function normalizeDecision(value: unknown): GovernanceDecision {
   const normalized = String(value || "").trim().toUpperCase();
@@ -62,25 +61,23 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function unifiedEndpoint(): { url?: string; key?: string } {
+  return {
+    url:
+      process.env.HARMONIC_API_URL ||
+      process.env.HARMONIC_GOVERNANCE_API_URL ||
+      process.env.HARMONIC_ONLY_API_URL ||
+      DEFAULT_HARMONIC_API_URL,
+    key:
+      process.env.HARMONIC_API_KEY ||
+      process.env.HARMONIC_GOVERNANCE_API_KEY ||
+      process.env.HARMONIC_ONLY_API_KEY
+  };
+}
+
 function endpointForLane(lane: LaneName): { url?: string; key?: string } {
-  if (lane === "harmonic") {
-    return {
-      url: process.env.HARMONIC_ONLY_API_URL || process.env.HARMONIC_API_URL || DEFAULT_HARMONIC_ONLY_API_URL,
-      key: process.env.HARMONIC_ONLY_API_KEY || process.env.HARMONIC_API_KEY
-    };
-  }
-
-  if (lane === "harmonic_governance") {
-    return {
-      url:
-        process.env.HARMONIC_GOVERNANCE_API_URL ||
-        process.env.GOVERNANCE_PACK_API_URL ||
-        DEFAULT_HARMONIC_GOVERNANCE_API_URL,
-      key: process.env.HARMONIC_GOVERNANCE_API_KEY || process.env.HARMONIC_API_KEY
-    };
-  }
-
-  return {};
+  if (lane === "raw") return {};
+  return unifiedEndpoint();
 }
 
 type ExecutionSurface =
@@ -841,6 +838,139 @@ async function validateEmergencyEvidenceChain(params: {
     missing_requirements: replayRecord?.missing_requirements || [],
     enterprise_packet_witness: enterprisePacket,
     replay
+  };
+}
+
+
+function evaluationFromUnifiedArtifact(params: {
+  lane: "harmonic" | "harmonic_governance";
+  unified: Record<string, unknown>;
+  prompt: string;
+  response: string;
+  scenario: string;
+  requestWitness: ReturnType<typeof buildGovernanceRequestWitness>;
+}): GovernanceEvaluation {
+  const layer =
+    params.lane === "harmonic"
+      ? (asRecord(params.unified.harmonic) || {})
+      : (asRecord(params.unified.governance) || {});
+
+  const primitiveResults =
+    params.lane === "harmonic_governance"
+      ? parsePrimitiveResults(layer)
+      : undefined;
+
+  const artifactDecision = decisionFromArtifact(layer);
+  const decision =
+    params.lane === "harmonic_governance" && artifactDecision !== "UNKNOWN"
+      ? artifactDecision
+      : mostRestrictiveDecision(
+          artifactDecision,
+          decisionFromPrimitiveResults(primitiveResults),
+          params.lane === "harmonic_governance"
+            ? decisionFromExecutionContext(classifyExecutionContext(params))
+            : "UNKNOWN"
+        );
+
+  const assurance = asRecord(params.unified.assurance);
+  return {
+    available: true,
+    decision,
+    summary: summarizeResponse(
+      layer,
+      params.lane === "harmonic"
+        ? "Harmonic stabilization result from the unified transaction."
+        : "Harmonic+ constitutional result from the unified transaction."
+    ),
+    flags: getFlags(
+      firstPresent(layer.flags, layer.warnings, layer.findings, layer.issues, layer.violations)
+    ),
+    primitiveResults,
+    raw: {
+      ...layer,
+      unified_transaction: {
+        api_version: params.unified.api_version || assurance?.api_version || null,
+        packet_id: params.unified.packet_id || null,
+        evidence_bearing: assurance?.evidence_bearing ?? false,
+        determination_id: assurance?.determination_id || null,
+        determination_hash: assurance?.determination_hash || null,
+        receipt_id: assurance?.receipt_id || null,
+        receipt_hash: assurance?.receipt_hash || null
+      },
+      harness_request_witness: params.requestWitness
+    }
+  };
+}
+
+export async function evaluateUnifiedGovernance(params: {
+  prompt: string;
+  response: string;
+  scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
+}): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
+  const { url, key } = unifiedEndpoint();
+  if (!url || !key) {
+    const unavailable: GovernanceEvaluation = {
+      available: false,
+      decision: "UNKNOWN",
+      summary: "No unified Harmonic API key configured. Prompt-level constraints were still applied.",
+      flags: ["endpoint-not-configured"]
+    };
+    return { harmonic: unavailable, harmonic_governance: unavailable };
+  }
+
+  const outboundPayload = buildGovernancePackPayload(params);
+  const requestWitness = buildGovernanceRequestWitness(outboundPayload);
+
+  if (
+    requestWitness.continuity.life_safety_context === true &&
+    /emergency[- ]continuity/i.test(params.prompt)
+  ) {
+    const continuity = requestWitness.continuity;
+    if (
+      continuity.primary_authority_available !== false ||
+      continuity.emergency_continuity_defined !== true ||
+      continuity.explicit_emergency_activation !== true
+    ) {
+      throw new Error("Emergency continuity scenario was not converted into the required structured governance state.");
+    }
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "X-Harmonic-Harness-Build": "v3.5-unified-single-call-2026-08-08"
+    },
+    body: JSON.stringify(outboundPayload)
+  });
+
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = text ? (JSON.parse(text) as Record<string, unknown>) : {}; }
+  catch { json = { raw_text: text }; }
+
+  if (!res.ok) {
+    const message = `Unified Harmonic API returned HTTP ${res.status}.`;
+    if (process.env.STRICT_GOVERNANCE_API === "true") throw new Error(`${message} ${text}`);
+    const failed: GovernanceEvaluation = {
+      available: false, decision: "UNKNOWN", summary: message, flags: ["api-error"], raw: json
+    };
+    return { harmonic: failed, harmonic_governance: failed };
+  }
+
+  return {
+    harmonic: evaluationFromUnifiedArtifact({
+      lane: "harmonic", unified: json, prompt: params.prompt, response: params.response,
+      scenario: params.scenario, requestWitness
+    }),
+    harmonic_governance: evaluationFromUnifiedArtifact({
+      lane: "harmonic_governance", unified: json, prompt: params.prompt, response: params.response,
+      scenario: params.scenario, requestWitness
+    })
   };
 }
 
