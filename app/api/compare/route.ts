@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { evaluateGovernance } from "../../../lib/governance-adapter";
+import { evaluateGovernance, evaluateUnifiedGovernance } from "../../../lib/governance-adapter";
 import { callSameLlm, getModelName, getProviderLabel } from "../../../lib/openai";
 import {
-  HARMONIC_GOVERNANCE_SYSTEM_PROMPT,
   HARMONIC_ONLY_SYSTEM_PROMPT,
   RAW_SYSTEM_PROMPT
 } from "../../../lib/prompts";
@@ -45,8 +44,29 @@ const laneConfig: Record<LaneName, { title: string; system: string }> = {
   }
 };
 
-async function runLane(params: {
-  lane: LaneName;
+async function runRawLane(params: {
+  prompt: string;
+  scenario: string;
+  temperature: number;
+  model?: string;
+}): Promise<LaneResult> {
+  const started = Date.now();
+  const response = await callSameLlm({
+    system: laneConfig.raw.system,
+    user: params.prompt,
+    temperature: params.temperature,
+    model: params.model
+  });
+  const evaluation = await evaluateGovernance({
+    lane: "raw",
+    prompt: params.prompt,
+    response,
+    scenario: params.scenario
+  });
+  return { lane: "raw", title: laneConfig.raw.title, response, evaluation, latencyMs: Date.now() - started };
+}
+
+async function runUnifiedGovernedLanes(params: {
   prompt: string;
   scenario: string;
   temperature: number;
@@ -54,17 +74,20 @@ async function runLane(params: {
   governanceFacts?: import('../../../lib/types').GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
   downstreamAccountability?: GovernanceDownstreamAccountability;
-}): Promise<LaneResult> {
+}): Promise<LaneResult[]> {
   const started = Date.now();
-  const config = laneConfig[params.lane];
+
+  // One candidate model response is evaluated once by Harmonic.
+  // Both comparison panels are projections of the same runtime transaction:
+  // Harmonic = stabilization layer; Harmonic+ = constitutional layer.
   const response = await callSameLlm({
-    system: config.system,
+    system: HARMONIC_ONLY_SYSTEM_PROMPT,
     user: params.prompt,
     temperature: params.temperature,
     model: params.model
   });
-  const evaluation = await evaluateGovernance({
-    lane: params.lane,
+
+  const unified = await evaluateUnifiedGovernance({
     prompt: params.prompt,
     response,
     scenario: params.scenario,
@@ -73,37 +96,50 @@ async function runLane(params: {
     downstreamAccountability: params.downstreamAccountability
   });
 
-  return {
-    lane: params.lane,
-    title: config.title,
-    response,
-    evaluation,
-    latencyMs: Date.now() - started
-  };
+  const latencyMs = Date.now() - started;
+  return [
+    {
+      lane: "harmonic",
+      title: laneConfig.harmonic.title,
+      response,
+      evaluation: unified.harmonic,
+      latencyMs
+    },
+    {
+      lane: "harmonic_governance",
+      title: laneConfig.harmonic_governance.title,
+      response,
+      evaluation: unified.harmonic_governance,
+      latencyMs
+    }
+  ];
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const parsed = RequestSchema.parse(body);
-    const lanes: LaneName[] = parsed.includeHarmonicOnly
-      ? ["raw", "harmonic", "harmonic_governance"]
-      : ["raw", "harmonic_governance"];
+    const [raw, governed] = await Promise.all([
+      runRawLane({
+        prompt: parsed.prompt,
+        scenario: parsed.scenario,
+        temperature: parsed.temperature,
+        model: parsed.model
+      }),
+      runUnifiedGovernedLanes({
+        prompt: parsed.prompt,
+        scenario: parsed.scenario,
+        temperature: parsed.temperature,
+        model: parsed.model,
+        governanceFacts: parsed.governanceFacts,
+        authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
+        downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined
+      })
+    ]);
 
-    const results = await Promise.all(
-      lanes.map((lane) =>
-        runLane({
-          lane,
-          prompt: parsed.prompt,
-          scenario: parsed.scenario,
-          temperature: parsed.temperature,
-          model: parsed.model,
-          governanceFacts: parsed.governanceFacts,
-          authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
-          downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined
-        })
-      )
-    );
+    const results: LaneResult[] = parsed.includeHarmonicOnly
+      ? [raw, ...governed]
+      : [raw, governed[1]];
 
     const payload: CompareResponse = {
       prompt: parsed.prompt,
