@@ -15,3 +15,15 @@ must(route,'const unified = await evaluateUnifiedGovernance','route does not mak
 mustNot(route,'lanes.map((lane)','old per-lane governance fanout still present');
 if((route.match(/evaluateUnifiedGovernance\(/g)||[]).length!==1)throw new Error('compare route must invoke unified Harmonic evaluation exactly once');
 console.log('Unified Harmonic/Harmonic+ single-call harness regression: PASS');
+
+const unifiedBlock=adapter.slice(adapter.indexOf('function unifiedEndpoint'),adapter.indexOf('function endpointForLane'));
+if(unifiedBlock.indexOf('process.env.HARMONIC_GOVERNANCE_API_KEY') > unifiedBlock.indexOf('process.env.HARMONIC_API_KEY')) {
+  throw new Error('Governance-entitled key must take precedence over base Harmonic key');
+}
+if(unifiedBlock.includes('process.env.HARMONIC_GOVERNANCE_API_URL')) {
+  throw new Error('Unified endpoint must not fall back to retired direct Governance Pack URL');
+}
+if(!unifiedBlock.includes('DEFAULT_HARMONIC_API_URL')) {
+  throw new Error('Unified endpoint must retain /api/evaluate default');
+}
+console.log('Governance entitlement precedence regression: PASS');
