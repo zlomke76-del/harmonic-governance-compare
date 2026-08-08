@@ -63,14 +63,19 @@ function asArray(value: unknown): unknown[] {
 
 function unifiedEndpoint(): { url?: string; key?: string } {
   return {
+    // The unified comparison must always call the single customer-facing endpoint.
+    // Do not fall back to the retired direct Governance Pack URL.
     url:
       process.env.HARMONIC_API_URL ||
-      process.env.HARMONIC_GOVERNANCE_API_URL ||
       process.env.HARMONIC_ONLY_API_URL ||
       DEFAULT_HARMONIC_API_URL,
+
+    // This harness demonstrates Harmonic + Harmonic+ in one transaction.
+    // Prefer the governance-entitled credential so /api/evaluate can activate
+    // the constitutional layer and persist its determination + receipt.
     key:
-      process.env.HARMONIC_API_KEY ||
       process.env.HARMONIC_GOVERNANCE_API_KEY ||
+      process.env.HARMONIC_API_KEY ||
       process.env.HARMONIC_ONLY_API_KEY
   };
 }
