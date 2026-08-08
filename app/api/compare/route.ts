@@ -40,7 +40,7 @@ const laneConfig: Record<LaneName, { title: string; system: string }> = {
   },
   harmonic_governance: {
     title: "Harmonic + Governance",
-    system: HARMONIC_GOVERNANCE_SYSTEM_PROMPT
+    system: HARMONIC_ONLY_SYSTEM_PROMPT
   }
 };
 
