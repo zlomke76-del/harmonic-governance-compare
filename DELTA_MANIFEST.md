@@ -1,21 +1,21 @@
-# Harmonic Governance Compare — Unified Single-Call Delta
+# Harmonic Governance Compare — Governance Key Precedence Fix
 
-Base: `harmonic-governance-compare-main (12).zip`
+Base: `harmonic-governance-compare-main (13).zip`
 
-The harness now demonstrates Harmonic vs Harmonic+ from one Harmonic API transaction.
+## Fix
 
-- Raw lane: separate model response, no Harmonic runtime call.
-- Governed candidate: one model response.
-- One POST to `/api/evaluate`.
-- Harmonic panel: returned `harmonic` layer.
-- Harmonic+ panel: returned `governance` layer.
-- Both governed panels use the same candidate response and same attributable runtime transaction.
+The unified single-call harness now:
 
-Canonical environment:
-- `HARMONIC_API_URL=https://www.solace-harmonic.com/api/evaluate`
-- `HARMONIC_API_KEY=...`
+- calls only `/api/evaluate`
+- prefers `HARMONIC_GOVERNANCE_API_KEY`
+- falls back to `HARMONIC_API_KEY`
+- never falls back to `HARMONIC_GOVERNANCE_API_URL`
 
-Legacy Harmonic-specific URL/key variables remain fallback-compatible.
+This ensures that when both base Harmonic and Harmonic+ credentials are configured,
+the single transaction authenticates with the governance-entitled credential and
+can persist the constitutional determination and receipt.
+
 No SQL migration required.
 
-Regression: `npm run test:unified-harmonic`
+Regression:
+`npm run test:unified-harmonic`
