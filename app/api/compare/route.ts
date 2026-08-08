@@ -7,7 +7,7 @@ import {
   HARMONIC_ONLY_SYSTEM_PROMPT,
   RAW_SYSTEM_PROMPT
 } from "../../../lib/prompts";
-import type { CompareResponse, LaneName, LaneResult } from "../../../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, LaneName, LaneResult } from "../../../lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +25,9 @@ const RequestSchema = z.object({
     explicit_emergency_activation: z.boolean().nullable().optional(),
     emergency_authority_available: z.boolean().nullable().optional(),
     emergency_authority: z.string().max(200).nullable().optional()
-  }).optional()
+  }).optional(),
+  authorityProvenance: z.record(z.string(), z.unknown()).optional(),
+  downstreamAccountability: z.record(z.string(), z.unknown()).optional()
 });
 
 const laneConfig: Record<LaneName, { title: string; system: string }> = {
@@ -50,6 +52,8 @@ async function runLane(params: {
   temperature: number;
   model?: string;
   governanceFacts?: import('../../../lib/types').GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
 }): Promise<LaneResult> {
   const started = Date.now();
   const config = laneConfig[params.lane];
@@ -64,7 +68,9 @@ async function runLane(params: {
     prompt: params.prompt,
     response,
     scenario: params.scenario,
-    governanceFacts: params.governanceFacts
+    governanceFacts: params.governanceFacts,
+    authorityProvenance: params.authorityProvenance,
+    downstreamAccountability: params.downstreamAccountability
   });
 
   return {
@@ -92,7 +98,9 @@ export async function POST(req: Request) {
           scenario: parsed.scenario,
           temperature: parsed.temperature,
           model: parsed.model,
-          governanceFacts: parsed.governanceFacts
+          governanceFacts: parsed.governanceFacts,
+          authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
+          downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined
         })
       )
     );
