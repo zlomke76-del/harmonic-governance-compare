@@ -2,7 +2,9 @@ import type {
   GovernanceDecision,
   GovernanceEvaluation,
   GovernanceSignal,
+  GovernanceAuthorityProvenance,
   GovernanceContinuityFacts,
+  GovernanceDownstreamAccountability,
   LaneName,
   PrimitiveAdmissibility,
   PrimitiveResult
@@ -507,6 +509,8 @@ function buildGovernancePackPayload(params: {
   response: string;
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
   const now = new Date().toISOString();
@@ -560,6 +564,8 @@ function buildGovernancePackPayload(params: {
         { actor: "harmonic-governance-compare", status: "active" }
       ]
     },
+    ...(params.authorityProvenance ? { authority_provenance: params.authorityProvenance } : {}),
+    ...(params.downstreamAccountability ? { downstream_accountability: params.downstreamAccountability } : {}),
     revocation_state: {
       last_revocation_check_at: now
     },
@@ -585,6 +591,8 @@ function buildPayload(params: {
   response: string;
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
 }) {
   if (params.lane === "harmonic") {
     return buildHarmonicOnlyPayload(params);
@@ -635,13 +643,28 @@ function asGovernanceContinuityFacts(value: unknown): GovernanceContinuityFacts 
 function buildGovernanceRequestWitness(payload: unknown) {
   const packet = asRecord(payload) || {};
   const continuity = asRecord(packet.continuity) || {};
+  const authorityProvenance = asRecord(packet.authority_provenance);
+  const downstreamAccountability = asRecord(packet.downstream_accountability);
 
   return {
-    adapter_build: "v2-structured-emergency-continuity-witness-2026-08-07",
+    adapter_build: "v3-authority-history-witness-2026-08-08",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
+    authority_provenance: {
+      supplied: Boolean(authorityProvenance),
+      authority_history_event_count: Array.isArray(authorityProvenance?.authority_history) ? authorityProvenance.authority_history.length : 0,
+      original_authority_supplied: Boolean(asRecord(authorityProvenance?.original_authority)),
+      authority_change_supplied: Boolean(asRecord(authorityProvenance?.authority_change)),
+      current_authority_supplied: Boolean(asRecord(authorityProvenance?.current_authority))
+    },
+    downstream_accountability: {
+      supplied: Boolean(downstreamAccountability),
+      enforcement_layer_supplied: Boolean(asRecord(downstreamAccountability?.enforcement_layer)),
+      next_decision_owner_supplied: Boolean(asRecord(downstreamAccountability?.next_decision_owner)),
+      consequence_owner_supplied: Boolean(asRecord(downstreamAccountability?.consequence_owner))
+    },
     continuity: {
       life_safety_context: continuity.life_safety_context ?? null,
       primary_authority_available: continuity.primary_authority_available ?? null,
@@ -690,6 +713,8 @@ async function validateEmergencyEvidenceChain(params: {
   prompt: string;
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
   outboundContinuity?: GovernanceContinuityFacts;
 }) {
   const enabled = process.env.HARMONIC_V2_EVIDENCE_CHAIN_VALIDATION === "true";
@@ -825,6 +850,8 @@ export async function evaluateGovernance(params: {
   response: string;
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
 }): Promise<GovernanceEvaluation> {
   if (params.lane === "raw") {
     return {
@@ -870,7 +897,7 @@ export async function evaluateGovernance(params: {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
-        "X-Harmonic-Harness-Build": "v2-structured-emergency-continuity-witness-2026-08-07"
+        "X-Harmonic-Harness-Build": "v3-authority-history-witness-2026-08-08"
       },
       body: JSON.stringify(outboundPayload)
     });

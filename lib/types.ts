@@ -7,6 +7,69 @@ export type GovernanceContinuityFacts = {
   emergency_authority?: string | null;
 };
 
+
+export type AuthorityActor = {
+  id: string;
+  name?: string;
+  role?: string;
+  institution?: string;
+};
+
+export type AuthorityHistoryEvent = {
+  event_id: string;
+  event_type: string;
+  effective_at: string;
+  actor: AuthorityActor;
+  source_ref?: string;
+  evidence_refs?: string[];
+};
+
+export type GovernanceAuthorityProvenance = {
+  authority_history?: AuthorityHistoryEvent[];
+  original_authority?: {
+    actor: AuthorityActor;
+    authority_source_type?: string;
+    authority_source_ref?: string;
+    delegation_ref?: string;
+    scope?: string[];
+    effective_at?: string;
+    evidence_refs?: string[];
+  };
+  authority_change?: {
+    change_type: string;
+    changed_at: string;
+    changed_by: AuthorityActor;
+    change_source_ref?: string;
+    reason?: string;
+    evidence_refs?: string[];
+  };
+  current_authority?: {
+    status: string;
+    actor?: AuthorityActor;
+    authority_source_ref?: string;
+    scope?: string[];
+    evidence_refs?: string[];
+  };
+};
+
+export type GovernanceDownstreamAccountability = {
+  enforcement_layer?: {
+    system: string;
+    component?: string;
+    owner?: AuthorityActor;
+    mode?: string;
+    enforcement_witness_ref?: string;
+  };
+  next_decision_owner?: {
+    actor: AuthorityActor;
+    authority_ref?: string;
+  };
+  consequence_owner?: {
+    actor: AuthorityActor;
+    responsibility_ref?: string;
+  };
+};
+
 export type LaneName = "raw" | "harmonic" | "harmonic_governance";
 
 export type GovernanceDecision = "ALLOW" | "CONSTRAIN" | "ESCALATE" | "EMERGENCY_CONTINUITY" | "BLOCK" | "UNKNOWN";
