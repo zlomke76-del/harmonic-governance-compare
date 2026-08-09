@@ -14,6 +14,11 @@ must(adapter,'legacy_packet: legacyPacket');
 must(adapter,'if (params.runtimeTarget === "v2") return evaluateFrozenV2(params)');
 must(adapter,'unexpected api_version');
 must(adapter,'frozen_v2_transaction');
+
+must(adapter,'HARMONIC_V2_VERCEL_BYPASS_SECRET');
+must(adapter,'"x-vercel-protection-bypass": bypassSecret');
+must(adapter,'"x-vercel-set-bypass-cookie": "true"');
+
 must(route,'runtimeTarget: z.enum(["v3", "v2"]).default("v3")');
 must(route,'Frozen V2 · 6a3a89f');
 must(page,'Runtime under examination');
