@@ -1066,12 +1066,20 @@ async function evaluateFrozenV2(params: {
   const requestWitness = buildGovernanceRequestWitness(legacyPacket);
   const enterprisePacket = buildV2EnterprisePacket(params);
 
+  const bypassSecret = process.env.HARMONIC_V2_VERCEL_BYPASS_SECRET?.trim();
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09"
+      "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09",
+      ...(bypassSecret
+        ? {
+            "x-vercel-protection-bypass": bypassSecret,
+            "x-vercel-set-bypass-cookie": "true"
+          }
+        : {})
     },
     body: JSON.stringify({ packet: enterprisePacket })
   });
