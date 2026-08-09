@@ -5,6 +5,7 @@ import type {
   GovernanceAuthorityProvenance,
   GovernanceContinuityFacts,
   GovernanceDownstreamAccountability,
+  RuntimeTarget,
   LaneName,
   PrimitiveAdmissibility,
   PrimitiveResult
@@ -77,6 +78,75 @@ function unifiedEndpoint(): { url?: string; key?: string } {
       process.env.HARMONIC_GOVERNANCE_API_KEY ||
       process.env.HARMONIC_API_KEY ||
       process.env.HARMONIC_ONLY_API_KEY
+  };
+}
+
+
+function v2Endpoint(): { url?: string; key?: string } {
+  const base = process.env.HARMONIC_V2_API_BASE_URL?.replace(/\/+$/, "");
+  return {
+    url: base ? `${base}/api/v2/evaluate` : undefined,
+    key:
+      process.env.HARMONIC_V2_API_KEY ||
+      process.env.HARMONIC_GOVERNANCE_API_KEY ||
+      process.env.HARMONIC_API_KEY ||
+      process.env.HARMONIC_ONLY_API_KEY
+  };
+}
+
+function buildV2EnterprisePacket(params: {
+  prompt: string;
+  response: string;
+  scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
+}) {
+  const legacyPacket = buildGovernancePackPayload(params);
+  const context = classifyExecutionContext(params);
+  const packetId = String(legacyPacket.packet_id);
+
+  return {
+    packet_id: packetId,
+    subject: {
+      type: "institutional_execution_request",
+      id: `subject:${packetId}`
+    },
+    action: {
+      type: context.surface,
+      description: params.prompt,
+      consequence_level: context.consequenceLevel,
+      scope: params.scenario
+    },
+    context: {
+      domain: context.surface,
+      workflow: params.scenario,
+      consequence_level: context.consequenceLevel,
+      potential_harms: [context.reason]
+    },
+    authority: {
+      responsible_actor: "harmonic-governance-compare",
+      basis: "Scenario-supplied institutional authority state",
+      human_override_available: true
+    },
+    evidence: {
+      claims: [params.prompt],
+      observations: [{ statement: params.response }],
+      items: [],
+      unresolved_contradictions: []
+    },
+    dependencies: {},
+    metadata: {
+      source: "harmonic-governance-compare",
+      scenario: params.scenario,
+      runtime_target: "frozen-v2",
+      legacy_packet: legacyPacket,
+      explicit_non_claims: [
+        "The harness does not assert that downstream execution occurred.",
+        "The harness does not infer a real-world effect from a constitutional determination.",
+        "The harness preserves the frozen V2 runtime response without substituting V3 semantics."
+      ]
+    }
   };
 }
 
@@ -907,7 +977,73 @@ function evaluationFromUnifiedArtifact(params: {
   };
 }
 
-export async function evaluateUnifiedGovernance(params: {
+
+function evaluationFromV2Artifact(params: {
+  lane: "harmonic" | "harmonic_governance";
+  artifact: Record<string, unknown>;
+  prompt: string;
+  response: string;
+  scenario: string;
+  requestWitness: ReturnType<typeof buildGovernanceRequestWitness>;
+}): GovernanceEvaluation {
+  const pipeline = asRecord(params.artifact.pipeline) || {};
+  const layer =
+    params.lane === "harmonic"
+      ? (asRecord(pipeline.harmonic) || {})
+      : (asRecord(params.artifact.determination) || asRecord(pipeline.governance) || {});
+
+  const primitiveResults =
+    params.lane === "harmonic_governance"
+      ? parsePrimitiveResults(layer)
+      : undefined;
+
+  const artifactDecision = decisionFromArtifact(layer);
+  const decision =
+    params.lane === "harmonic_governance" && artifactDecision !== "UNKNOWN"
+      ? artifactDecision
+      : mostRestrictiveDecision(
+          artifactDecision,
+          decisionFromPrimitiveResults(primitiveResults),
+          params.lane === "harmonic_governance"
+            ? decisionFromExecutionContext(classifyExecutionContext(params))
+            : "UNKNOWN"
+        );
+
+  const constitutionalDetermination = asRecord(params.artifact.constitutional_determination);
+  const constitutionalReceipt = asRecord(params.artifact.constitutional_receipt);
+  const evidence = asRecord(params.artifact.evidence);
+
+  return {
+    available: true,
+    decision,
+    summary: summarizeResponse(
+      layer,
+      params.lane === "harmonic"
+        ? "Frozen V2 Harmonic stabilization result."
+        : "Frozen V2 constitutional determination."
+    ),
+    flags: getFlags(firstPresent(layer.flags, layer.warnings, layer.findings, layer.issues, layer.violations)),
+    primitiveResults,
+    raw: {
+      ...layer,
+      frozen_v2_transaction: {
+        api_version: params.artifact.api_version || "v2",
+        runtime_version: params.artifact.runtime_version || null,
+        request_id: params.artifact.request_id || null,
+        trace_id: params.artifact.trace_id || null,
+        packet_id: layer.packet_id || pipeline.packet_id || null,
+        determination_id: constitutionalDetermination?.determination_id || null,
+        determination_hash: constitutionalDetermination?.determination_hash || null,
+        receipt_id: constitutionalReceipt?.receipt_id || null,
+        receipt_hash: constitutionalReceipt?.receipt_hash || null,
+        evidence: evidence || null
+      },
+      harness_request_witness: params.requestWitness
+    }
+  };
+}
+
+async function evaluateFrozenV2(params: {
   prompt: string;
   response: string;
   scenario: string;
@@ -915,6 +1051,76 @@ export async function evaluateUnifiedGovernance(params: {
   authorityProvenance?: GovernanceAuthorityProvenance;
   downstreamAccountability?: GovernanceDownstreamAccountability;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
+  const { url, key } = v2Endpoint();
+  if (!url || !key) {
+    const unavailable: GovernanceEvaluation = {
+      available: false,
+      decision: "UNKNOWN",
+      summary: "Frozen V2 is selected but HARMONIC_V2_API_BASE_URL or an API key is not configured.",
+      flags: ["v2-endpoint-not-configured"]
+    };
+    return { harmonic: unavailable, harmonic_governance: unavailable };
+  }
+
+  const legacyPacket = buildGovernancePackPayload(params);
+  const requestWitness = buildGovernanceRequestWitness(legacyPacket);
+  const enterprisePacket = buildV2EnterprisePacket(params);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09"
+    },
+    body: JSON.stringify({ packet: enterprisePacket })
+  });
+
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = text ? (JSON.parse(text) as Record<string, unknown>) : {}; }
+  catch { json = { raw_text: text }; }
+
+  if (!res.ok) {
+    const message = `Frozen V2 API returned HTTP ${res.status}.`;
+    if (process.env.STRICT_GOVERNANCE_API === "true") throw new Error(`${message} ${text}`);
+    const failed: GovernanceEvaluation = {
+      available: false,
+      decision: "UNKNOWN",
+      summary: message,
+      flags: ["v2-api-error"],
+      raw: json
+    };
+    return { harmonic: failed, harmonic_governance: failed };
+  }
+
+  if (String(json.api_version || "").toLowerCase() !== "v2") {
+    throw new Error(`Frozen V2 target returned unexpected api_version: ${String(json.api_version || "missing")}`);
+  }
+
+  return {
+    harmonic: evaluationFromV2Artifact({
+      lane: "harmonic", artifact: json, prompt: params.prompt, response: params.response,
+      scenario: params.scenario, requestWitness
+    }),
+    harmonic_governance: evaluationFromV2Artifact({
+      lane: "harmonic_governance", artifact: json, prompt: params.prompt, response: params.response,
+      scenario: params.scenario, requestWitness
+    })
+  };
+}
+
+export async function evaluateUnifiedGovernance(params: {
+  runtimeTarget?: RuntimeTarget;
+  prompt: string;
+  response: string;
+  scenario: string;
+  governanceFacts?: GovernanceContinuityFacts;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  downstreamAccountability?: GovernanceDownstreamAccountability;
+}): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
+  if (params.runtimeTarget === "v2") return evaluateFrozenV2(params);
+
   const { url, key } = unifiedEndpoint();
   if (!url || !key) {
     const unavailable: GovernanceEvaluation = {

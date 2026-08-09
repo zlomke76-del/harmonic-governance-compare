@@ -70,6 +70,8 @@ export type GovernanceDownstreamAccountability = {
   };
 };
 
+export type RuntimeTarget = "v3" | "v2";
+
 export type LaneName = "raw" | "harmonic" | "harmonic_governance";
 
 export type GovernanceDecision = "ALLOW" | "CONSTRAIN" | "ESCALATE" | "EMERGENCY_CONTINUITY" | "BLOCK" | "UNKNOWN";
@@ -114,6 +116,8 @@ export interface LaneResult {
 }
 
 export interface CompareResponse {
+  runtimeTarget?: RuntimeTarget;
+  runtimeLabel?: string;
   prompt: string;
   scenario: string;
   model: string;
