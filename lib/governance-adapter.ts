@@ -948,6 +948,77 @@ function evaluationFromUnifiedArtifact(params: {
         );
 
   const assurance = asRecord(params.unified.assurance);
+  const constitutionalDetermination =
+    asRecord(params.unified.constitutional_determination) ||
+    asRecord(assurance?.constitutional_determination) ||
+    asRecord(assurance?.determination);
+  const constitutionalReceipt =
+    asRecord(params.unified.constitutional_receipt) ||
+    asRecord(assurance?.constitutional_receipt) ||
+    asRecord(assurance?.receipt);
+  const determinationBody = asRecord(constitutionalDetermination?.determination_body) || constitutionalDetermination;
+  const receiptBody = asRecord(constitutionalReceipt?.receipt_body) || constitutionalReceipt;
+  const responseBinding = asRecord(layer.response_binding);
+  const dependencyManifest =
+    asRecord(determinationBody?.dependency_manifest) ||
+    asRecord(receiptBody?.dependency_manifest) ||
+    asRecord(assurance?.dependency_manifest);
+  const presentStateBinding =
+    asRecord(determinationBody?.present_state_binding) ||
+    asRecord(receiptBody?.present_state_binding) ||
+    asRecord(assurance?.present_state_binding);
+  const currency =
+    asRecord(determinationBody?.currency_at_creation) ||
+    asRecord(assurance?.determination_currency);
+  const replay = asRecord(assurance?.replay) || asRecord(params.unified.replay);
+  const projection = asRecord(assurance?.projection) || asRecord(params.unified.projection);
+
+  // IMPORTANT: this is a projection of the SAME /api/evaluate response.
+  // The harness must never make follow-up calls to assemble the initial
+  // constitutional transaction. Lifecycle APIs remain optional later surfaces.
+  const constitutionalTransaction = {
+    contract: "single_api_call",
+    api_version: params.unified.api_version || assurance?.api_version || null,
+    packet_id: params.unified.packet_id || layer.packet_id || null,
+    evidence_bearing: assurance?.evidence_bearing ?? Boolean(constitutionalDetermination || constitutionalReceipt),
+    present_state: {
+      binding: presentStateBinding || null,
+      state_hash: presentStateBinding?.state_hash || determinationBody?.runtime_input_snapshot_hash || assurance?.present_state_hash || null,
+      provenance: presentStateBinding?.provenance || presentStateBinding?.present_state_provenance || assurance?.present_state_provenance || null,
+      epistemic_status: presentStateBinding?.epistemic_status || assurance?.epistemic_status || "NOT_PROVIDED"
+    },
+    determination: {
+      outcome: firstPresent(layer.outcome, layer.decision, determinationBody?.outcome) || null,
+      admissible: firstPresent(layer.admissible, determinationBody?.admissible) ?? null,
+      action: firstPresent(layer.action, determinationBody?.action) || null,
+      reason: firstPresent(layer.decision_reason, determinationBody?.decision_reason, responseBinding?.binding_instruction) || null,
+      determination_id: assurance?.determination_id || determinationBody?.determination_id || null,
+      determination_hash: assurance?.determination_hash || determinationBody?.determination_hash || null
+    },
+    dependencies: {
+      manifest: dependencyManifest || null,
+      dependency_root: determinationBody?.dependency_root || dependencyManifest?.dependency_root || assurance?.dependency_root || null
+    },
+    currency: currency || { status: "CURRENT_AT_CREATION" },
+    execution: {
+      boundary: layer.execution_boundary || determinationBody?.execution_boundary || null,
+      status: responseBinding?.execution_status || assurance?.execution_status || "NOT_EXECUTED_BY_HARMONIC"
+    },
+    receipt: {
+      receipt_id: assurance?.receipt_id || receiptBody?.receipt_id || null,
+      receipt_hash: assurance?.receipt_hash || receiptBody?.receipt_hash || null
+    },
+    replay: {
+      status: replay?.status || assurance?.replay_status || "NOT_EXERCISED",
+      range_binding: replay?.range_binding || assurance?.evidence_range || null
+    },
+    integrity: {
+      transaction_digest: determinationBody?.transaction_digest || receiptBody?.transaction_digest || assurance?.transaction_digest || null,
+      projection_digest: projection?.projection_digest || assurance?.projection_digest || null,
+      projection_integrity: projection?.integrity_status || assurance?.projection_integrity || "NOT_EXERCISED"
+    }
+  };
+
   return {
     available: true,
     decision,
@@ -972,6 +1043,7 @@ function evaluationFromUnifiedArtifact(params: {
         receipt_id: assurance?.receipt_id || null,
         receipt_hash: assurance?.receipt_hash || null
       },
+      constitutional_transaction: constitutionalTransaction,
       harness_request_witness: params.requestWitness
     }
   };
@@ -1226,7 +1298,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v3.5-unified-single-call-2026-08-08"
+      "X-Harmonic-Harness-Build": "v3.6-universal-transaction-projection-2026-08-09"
     },
     body: JSON.stringify(outboundPayload)
   });
