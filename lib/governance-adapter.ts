@@ -1068,21 +1068,58 @@ async function evaluateFrozenV2(params: {
 
   const bypassSecret = process.env.HARMONIC_V2_VERCEL_BYPASS_SECRET?.trim();
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09",
-      ...(bypassSecret
-        ? {
-            "x-vercel-protection-bypass": bypassSecret,
-            "x-vercel-set-bypass-cookie": "true"
-          }
-        : {})
-    },
-    body: JSON.stringify({ packet: enterprisePacket })
-  });
+  const requestUrl = new URL(url);
+  if (bypassSecret) {
+    requestUrl.searchParams.set("x-vercel-protection-bypass", bypassSecret);
+    requestUrl.searchParams.set("x-vercel-set-bypass-cookie", "true");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(requestUrl.toString(), {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+        "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09",
+        ...(bypassSecret
+          ? {
+              "x-vercel-protection-bypass": bypassSecret,
+              "x-vercel-set-bypass-cookie": "true"
+            }
+          : {})
+      },
+      body: JSON.stringify({ packet: enterprisePacket })
+    });
+  } catch (error) {
+    const err = error as Error & { cause?: unknown };
+    const cause =
+      err?.cause && typeof err.cause === "object"
+        ? JSON.stringify(err.cause)
+        : err?.cause
+          ? String(err.cause)
+          : null;
+
+    throw new Error(
+      [
+        "Frozen V2 fetch failed before an HTTP response was received.",
+        `target=${requestUrl.origin}${requestUrl.pathname}`,
+        `bypass_configured=${Boolean(bypassSecret)}`,
+        `error=${err?.message || String(error)}`,
+        cause ? `cause=${cause}` : null
+      ].filter(Boolean).join(" | ")
+    );
+  }
+
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get("location");
+    throw new Error(
+      `Frozen V2 returned unexpected redirect HTTP ${res.status}` +
+      (location ? ` to ${location}` : "") +
+      `. The Vercel protection bypass was ${bypassSecret ? "configured" : "not configured"}.`
+    );
+  }
 
   const text = await res.text();
   let json: Record<string, unknown> = {};
