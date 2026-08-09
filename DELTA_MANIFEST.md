@@ -1,21 +1,32 @@
-# Harmonic Governance Compare — Governance Key Precedence Fix
+# Harmonic Governance Compare — Frozen V2 Runtime Selector
 
-Base: `harmonic-governance-compare-main (13).zip`
+Base: `harmonic-governance-compare-main (14).zip`
 
-## Fix
+## Change
 
-The unified single-call harness now:
+The harness can now explicitly target:
+- Current V3
+- Frozen V2 · 6a3a89f
 
-- calls only `/api/evaluate`
-- prefers `HARMONIC_GOVERNANCE_API_KEY`
-- falls back to `HARMONIC_API_KEY`
-- never falls back to `HARMONIC_GOVERNANCE_API_URL`
+Frozen V2 mode sends the governed candidate once to:
+`HARMONIC_V2_API_BASE_URL + /api/v2/evaluate`
 
-This ensures that when both base Harmonic and Harmonic+ credentials are configured,
-the single transaction authenticates with the governance-entitled credential and
-can persist the constitutional determination and receipt.
+The V2 response must identify `api_version: v2`; otherwise the harness refuses it.
 
-No SQL migration required.
+The same comparison UI projects Harmonic and Harmonic+ from that single frozen V2 transaction.
+
+No changes are made to frozen V2 itself.
+
+## Vercel environment
+
+Required:
+`HARMONIC_V2_API_BASE_URL=https://<6a3a89f-deployment>`
+
+Optional:
+`HARMONIC_V2_API_KEY=...`
+
+If the dedicated V2 key is omitted, credential fallback is:
+`HARMONIC_GOVERNANCE_API_KEY` → `HARMONIC_API_KEY` → `HARMONIC_ONLY_API_KEY`.
 
 Regression:
-`npm run test:unified-harmonic`
+`npm run test:v2-runtime-selector`

@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:unified-harmonic": "node scripts/test-unified-harmonic-call.cjs"
+    "test:unified-harmonic": "node scripts/test-unified-harmonic-call.cjs",
+    "test:v2-runtime-selector": "node scripts/test-v2-runtime-selector.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
