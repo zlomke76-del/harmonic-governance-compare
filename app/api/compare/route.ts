@@ -6,12 +6,13 @@ import {
   HARMONIC_ONLY_SYSTEM_PROMPT,
   RAW_SYSTEM_PROMPT
 } from "../../../lib/prompts";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, LaneName, LaneResult } from "../../../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, LaneName, LaneResult, RuntimeTarget } from "../../../lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const RequestSchema = z.object({
+  runtimeTarget: z.enum(["v3", "v2"]).default("v3"),
   prompt: z.string().min(1).max(12000),
   scenario: z.string().min(1).max(200).default("general"),
   includeHarmonicOnly: z.boolean().default(true),
@@ -67,6 +68,7 @@ async function runRawLane(params: {
 }
 
 async function runUnifiedGovernedLanes(params: {
+  runtimeTarget: RuntimeTarget;
   prompt: string;
   scenario: string;
   temperature: number;
@@ -88,6 +90,7 @@ async function runUnifiedGovernedLanes(params: {
   });
 
   const unified = await evaluateUnifiedGovernance({
+    runtimeTarget: params.runtimeTarget,
     prompt: params.prompt,
     response,
     scenario: params.scenario,
@@ -127,6 +130,7 @@ export async function POST(req: Request) {
         model: parsed.model
       }),
       runUnifiedGovernedLanes({
+        runtimeTarget: parsed.runtimeTarget,
         prompt: parsed.prompt,
         scenario: parsed.scenario,
         temperature: parsed.temperature,
@@ -142,6 +146,8 @@ export async function POST(req: Request) {
       : [raw, governed[1]];
 
     const payload: CompareResponse = {
+      runtimeTarget: parsed.runtimeTarget,
+      runtimeLabel: parsed.runtimeTarget === "v2" ? "Frozen V2 · 6a3a89f" : "Current V3",
       prompt: parsed.prompt,
       scenario: parsed.scenario,
       model: `${getProviderLabel(parsed.model)} · ${getModelName(parsed.model)}`,
