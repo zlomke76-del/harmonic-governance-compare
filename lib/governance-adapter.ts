@@ -1074,48 +1074,75 @@ async function evaluateFrozenV2(params: {
     requestUrl.searchParams.set("x-vercel-set-bypass-cookie", "true");
   }
 
-  let res: Response;
-  try {
-    res = await fetch(requestUrl.toString(), {
-      method: "POST",
-      redirect: "manual",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-        "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09",
-        ...(bypassSecret
-          ? {
-              "x-vercel-protection-bypass": bypassSecret,
-              "x-vercel-set-bypass-cookie": "true"
-            }
-          : {})
-      },
-      body: JSON.stringify({ packet: enterprisePacket })
-    });
-  } catch (error) {
-    const err = error as Error & { cause?: unknown };
-    const cause =
-      err?.cause && typeof err.cause === "object"
-        ? JSON.stringify(err.cause)
-        : err?.cause
-          ? String(err.cause)
-          : null;
+  const requestBody = JSON.stringify({ packet: enterprisePacket });
 
-    throw new Error(
-      [
-        "Frozen V2 fetch failed before an HTTP response was received.",
-        `target=${requestUrl.origin}${requestUrl.pathname}`,
-        `bypass_configured=${Boolean(bypassSecret)}`,
-        `error=${err?.message || String(error)}`,
-        cause ? `cause=${cause}` : null
-      ].filter(Boolean).join(" | ")
-    );
+  const v2Headers = (cookie?: string): Record<string, string> => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${key}`,
+    "X-Harmonic-Harness-Build": "frozen-v2-selector-2026-08-09",
+    ...(bypassSecret
+      ? {
+          "x-vercel-protection-bypass": bypassSecret,
+          "x-vercel-set-bypass-cookie": "true"
+        }
+      : {}),
+    ...(cookie ? { Cookie: cookie } : {})
+  });
+
+  const doV2Fetch = async (target: string, cookie?: string): Promise<Response> => {
+    try {
+      return await fetch(target, {
+        method: "POST",
+        redirect: "manual",
+        headers: v2Headers(cookie),
+        body: requestBody
+      });
+    } catch (error) {
+      const err = error as Error & { cause?: unknown };
+      const cause =
+        err?.cause && typeof err.cause === "object"
+          ? JSON.stringify(err.cause)
+          : err?.cause
+            ? String(err.cause)
+            : null;
+
+      throw new Error(
+        [
+          "Frozen V2 fetch failed before an HTTP response was received.",
+          `target=${new URL(target).origin}${new URL(target).pathname}`,
+          `bypass_configured=${Boolean(bypassSecret)}`,
+          `error=${err?.message || String(error)}`,
+          cause ? `cause=${cause}` : null
+        ].filter(Boolean).join(" | ")
+      );
+    }
+  };
+
+  let res = await doV2Fetch(requestUrl.toString());
+
+  // Vercel Protection Bypass for Automation can answer the first request with
+  // a 307 to the same route while setting a bypass cookie. Node fetch does not
+  // retain cookies across redirects, so complete that handshake explicitly.
+  if (res.status === 307 && bypassSecret) {
+    const location = res.headers.get("location");
+    const setCookie = res.headers.get("set-cookie");
+
+    if (location && setCookie) {
+      const cookie = setCookie.split(";")[0]?.trim();
+      const redirectUrl = new URL(location, requestUrl.origin);
+
+      if (!cookie) {
+        throw new Error("Frozen V2 protection redirect did not contain a usable bypass cookie.");
+      }
+
+      res = await doV2Fetch(redirectUrl.toString(), cookie);
+    }
   }
 
   if (res.status >= 300 && res.status < 400) {
     const location = res.headers.get("location");
     throw new Error(
-      `Frozen V2 returned unexpected redirect HTTP ${res.status}` +
+      `Frozen V2 returned unresolved redirect HTTP ${res.status}` +
       (location ? ` to ${location}` : "") +
       `. The Vercel protection bypass was ${bypassSecret ? "configured" : "not configured"}.`
     );
