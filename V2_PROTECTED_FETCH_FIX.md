@@ -1,20 +1,24 @@
 # Frozen V2 protected-deployment fetch fix
 
-This patch changes only the Governance Compare harness.
+This patch changes only the Governance Compare harness. Frozen V2 source remains untouched.
 
-For Frozen V2 calls, the Vercel automation bypass is now sent in both forms supported by the deployment-protection boundary:
+## Vercel protection handshake
 
-- `x-vercel-protection-bypass` request header
+Frozen V2 requests send the automation-bypass value as both:
+
+- `x-vercel-protection-bypass` header
 - `x-vercel-protection-bypass` query parameter
 
-The bypass-cookie directive is also sent as both header/query metadata.
+The first protected request may legitimately return `307` to the same route with a
+`Set-Cookie` header. Browser clients handle that automatically; Node's server-side
+`fetch` does not maintain a cookie jar.
 
-Redirects are not followed automatically. A 3xx response is surfaced explicitly so the harness cannot silently leave the frozen V2 target.
+The harness now:
 
-If Node fetch fails before any HTTP response is received, the harness now reports:
-- the target origin/path
-- whether a bypass secret was configured
-- the actual fetch error
-- the underlying cause, when available
+1. Sends the original POST with the bypass header/query parameter.
+2. If Vercel returns `307` plus `Set-Cookie`, captures only the cookie pair.
+3. Replays the exact same POST once to the returned location with that cookie.
+4. Refuses any unresolved additional redirect.
+5. Preserves detailed pre-response network diagnostics.
 
-No frozen V2 source code is modified.
+No Case 003 inputs or frozen V2 implementation code are modified.
