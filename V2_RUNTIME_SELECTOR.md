@@ -26,3 +26,17 @@ When Frozen V2 is selected, the harness refuses to accept a response whose `api_
 The V2 request uses the frozen enterprise contract and embeds the same governance packet as `metadata.legacy_packet`, allowing the frozen V2 runtime to evaluate the same scenario without substituting V3 semantics.
 
 No change is made to the frozen V2 runtime.
+
+
+## Protected Vercel preview support
+
+If the frozen V2 deployment is protected by Vercel Authentication, configure:
+
+`HARMONIC_V2_VERCEL_BYPASS_SECRET=...`
+
+Frozen V2 requests will then include:
+
+- `x-vercel-protection-bypass`
+- `x-vercel-set-bypass-cookie: true`
+
+The bypass header is sent only to the Frozen V2 target. Current V3 requests are unchanged.

@@ -1,32 +1,18 @@
-# Harmonic Governance Compare — Frozen V2 Runtime Selector
+# Harmonic Governance Compare — Frozen V2 Vercel Bypass
 
-Base: `harmonic-governance-compare-main (14).zip`
+Base: harness with Frozen V2 runtime selector.
 
-## Change
+## Fix
 
-The harness can now explicitly target:
-- Current V3
-- Frozen V2 · 6a3a89f
+When `HARMONIC_V2_VERCEL_BYPASS_SECRET` is configured, Frozen V2 requests send:
 
-Frozen V2 mode sends the governed candidate once to:
-`HARMONIC_V2_API_BASE_URL + /api/v2/evaluate`
+- `x-vercel-protection-bypass`
+- `x-vercel-set-bypass-cookie: true`
 
-The V2 response must identify `api_version: v2`; otherwise the harness refuses it.
+The bypass is applied only to Frozen V2 calls. Current V3 behavior is unchanged.
 
-The same comparison UI projects Harmonic and Harmonic+ from that single frozen V2 transaction.
-
-No changes are made to frozen V2 itself.
-
-## Vercel environment
-
-Required:
-`HARMONIC_V2_API_BASE_URL=https://<6a3a89f-deployment>`
-
-Optional:
-`HARMONIC_V2_API_KEY=...`
-
-If the dedicated V2 key is omitted, credential fallback is:
-`HARMONIC_GOVERNANCE_API_KEY` → `HARMONIC_API_KEY` → `HARMONIC_ONLY_API_KEY`.
+Required Vercel env on the compare harness:
+`HARMONIC_V2_VERCEL_BYPASS_SECRET=...`
 
 Regression:
 `npm run test:v2-runtime-selector`
