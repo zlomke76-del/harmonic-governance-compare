@@ -1001,13 +1001,39 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     .map((primitive) => `${primitive.label}: ${shortHash(primitive.artifactHash)}`)
     .join(" · ") || "Local primitive artifacts not returned by endpoint";
 
+  const transaction = getRawRecord(raw.constitutional_transaction);
+  const presentState = getRawRecord(transaction.present_state);
+  const determination = getRawRecord(transaction.determination);
+  const dependencies = getRawRecord(transaction.dependencies);
+  const currency = getRawRecord(transaction.currency);
+  const execution = getRawRecord(transaction.execution);
+  const receipt = getRawRecord(transaction.receipt);
+  const replay = getRawRecord(transaction.replay);
+  const integrity = getRawRecord(transaction.integrity);
+  const dependencyManifest = getRawRecord(dependencies.manifest);
+  const presentStateBinding = getRawRecord(presentState.binding);
+
   const rows = [
     { label: "Execution Packet", value: stableArtifactId(result, lane) },
+    { label: "API Contract", value: transaction.contract === "single_api_call" ? "Universal single call · /api/evaluate" : "Universal runtime response" },
     { label: "Runtime", value: lane?.evaluation.available ? "External Harmonic / Governance Pack" : "Local fallback / endpoint not configured" },
     { label: "Governance Pack", value: String(raw.version || raw.governance_pack_version || raw.package_version || "constitutional-runtime-vNext") },
     { label: "Execution Binding", value: lane ? `${lane.title} → ${decisionText(lane.evaluation.decision)}` : "Pending" },
     { label: "Primitive Hashes", value: primitiveHashes },
     { label: "Artifact Lineage", value: "T0 Recommendation Created → T1 Reality Changed → T2 Execution Requested → T3 Constitutional Runtime → T4 Execution Decision" },
+    { label: "Present State", value: String(presentState.state_hash || presentStateBinding.state_hash || "Not returned") },
+    { label: "State Provenance", value: presentState.provenance ? "Attributable provenance returned" : "Not provided" },
+    { label: "Epistemic Status", value: String(presentState.epistemic_status || "NOT_PROVIDED") },
+    { label: "Determination", value: `${String(determination.outcome || lane?.evaluation.decision || "UNKNOWN")} · admissible=${String(determination.admissible ?? "unknown")} · action=${String(determination.action || "none")}` },
+    { label: "Determination Identity", value: `${String(determination.determination_id || "not returned")} · ${shortHash(typeof determination.determination_hash === "string" ? determination.determination_hash : undefined)}` },
+    { label: "Dependencies", value: dependencies.dependency_root ? `${Object.keys(dependencyManifest).length} manifest fields · root ${shortHash(String(dependencies.dependency_root))}` : "Dependency root not returned" },
+    { label: "Determination Currency", value: String(currency.status || currency.currency_status || "CURRENT_AT_CREATION") },
+    { label: "Execution Status", value: String(execution.status || "NOT_EXECUTED_BY_HARMONIC") },
+    { label: "Receipt", value: `${String(receipt.receipt_id || "not returned")} · ${shortHash(typeof receipt.receipt_hash === "string" ? receipt.receipt_hash : undefined)}` },
+    { label: "Replay Status", value: String(replay.status || "NOT_EXERCISED") },
+    { label: "Evidence Range", value: replay.range_binding ? "Range-bound evidence identity returned" : "NOT_EXERCISED / not returned" },
+    { label: "Transaction Digest", value: typeof integrity.transaction_digest === "string" ? integrity.transaction_digest : "Not returned" },
+    { label: "Projection Integrity", value: `${String(integrity.projection_integrity || "NOT_EXERCISED")}${integrity.projection_digest ? ` · ${shortHash(String(integrity.projection_digest))}` : ""}` },
     {
       label: "V2 Evidence Chain",
       value: (() => {
