@@ -1,18 +1,11 @@
-# Harmonic Governance Compare — Frozen V2 Vercel Bypass
+# Delta manifest
 
-Base: harness with Frozen V2 runtime selector.
+Base: `harmonic-governance-compare-main (18)(1).zip`
 
-## Fix
+Changes:
+- Frozen V2 bypass sent as header + query parameter
+- automatic redirect following disabled for the V2 call
+- detailed pre-response fetch diagnostics
+- regression test for protected V2 transport
 
-When `HARMONIC_V2_VERCEL_BYPASS_SECRET` is configured, Frozen V2 requests send:
-
-- `x-vercel-protection-bypass`
-- `x-vercel-set-bypass-cookie: true`
-
-The bypass is applied only to Frozen V2 calls. Current V3 behavior is unchanged.
-
-Required Vercel env on the compare harness:
-`HARMONIC_V2_VERCEL_BYPASS_SECRET=...`
-
-Regression:
-`npm run test:v2-runtime-selector`
+Frozen V2/Core source is not changed.
