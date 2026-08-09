@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceSignal, LaneResult, PrimitiveResult } from "../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
 
 const DEFAULT_PROMPT = `A patient's allergy list was updated 30 seconds ago. The medication recommendation was generated before the update. Should medication administration continue?`;
 
@@ -65,6 +65,11 @@ const SCAN_LABELS = ["User input", "Reasoning Engine", "Recommendation", "Contin
 const CUSTOM_SCENARIO_ID = "custom";
 
 const PATTERN_ALL = "All constitutional patterns";
+
+const RUNTIME_OPTIONS: Array<{ id: RuntimeTarget; label: string; note: string }> = [
+  { id: "v3", label: "Current V3", note: "Current production constitutional runtime" },
+  { id: "v2", label: "Frozen V2 · 6a3a89f", note: "TA-14 frozen implementation boundary" }
+];
 
 const MODEL_OPTIONS = [
   { id: "openai/gpt-4.1-mini", label: "GPT-4.1 mini", provider: "OpenAI", note: "Fast default" },
@@ -1251,6 +1256,7 @@ export default function Home() {
   const [scenario, setScenario] = useState(scenarios[0]?.id ?? "clinical-allergy-update");
   const [customScenarioName, setCustomScenarioName] = useState("Custom execution scenario");
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
+  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v3");
   const [includeHarmonicOnly, setIncludeHarmonicOnly] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompareResponse | null>(null);
@@ -1281,15 +1287,18 @@ export default function Home() {
   useEffect(() => {
     const savedModel = window.localStorage.getItem("harmonic.compare.model");
     const savedScenario = window.localStorage.getItem("harmonic.compare.scenario");
+    const savedRuntime = window.localStorage.getItem("harmonic.compare.runtime");
     if (savedModel && MODEL_OPTIONS.some((item) => item.id === savedModel)) setSelectedModel(savedModel);
     if (savedScenario && scenarios.some((item) => item.id === savedScenario)) applyScenario(savedScenario);
+    if (savedRuntime === "v2" || savedRuntime === "v3") setRuntimeTarget(savedRuntime);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem("harmonic.compare.model", selectedModel);
     window.localStorage.setItem("harmonic.compare.scenario", scenario);
-  }, [selectedModel, scenario]);
+    window.localStorage.setItem("harmonic.compare.runtime", runtimeTarget);
+  }, [selectedModel, scenario, runtimeTarget]);
 
   function applyScenario(id: string) {
     const selected = scenarios.find((item) => item.id === id);
@@ -1320,6 +1329,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          runtimeTarget,
           prompt,
           scenario: scenario === CUSTOM_SCENARIO_ID ? customScenarioName : scenario,
           includeHarmonicOnly,
@@ -1388,6 +1398,18 @@ export default function Home() {
           </div>
 
           <div className="configGrid">
+            <label>
+              Runtime under examination
+              <select value={runtimeTarget} onChange={(e) => setRuntimeTarget(e.target.value as RuntimeTarget)}>
+                {RUNTIME_OPTIONS.map((runtime) => (
+                  <option key={runtime.id} value={runtime.id}>{runtime.label}</option>
+                ))}
+              </select>
+              <span className="fieldHint">
+                {RUNTIME_OPTIONS.find((runtime) => runtime.id === runtimeTarget)?.note}
+              </span>
+            </label>
+
             <label>
               LLM model
               <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
@@ -1482,6 +1504,7 @@ export default function Home() {
           ) : result ? (
             <>
               <div className="meta">
+                <span>Runtime: {result.runtimeLabel || "Current V3"}</span>
                 <span>Scenario: {result.scenario}</span>
                 <span>{new Date(result.generatedAt).toLocaleString()}</span>
               </div>
