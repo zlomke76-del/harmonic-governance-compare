@@ -966,11 +966,15 @@ function evaluationFromUnifiedArtifact(params: {
     asRecord(assurance?.determination_currency);
   const replay = asRecord(assurance?.replay) || asRecord(params.unified.replay);
   const projection = asRecord(assurance?.projection) || asRecord(params.unified.projection);
+  const returnedConstitutionalTransaction = asRecord(params.unified.constitutional_transaction);
+  const returnedUnifiedTransaction = asRecord(params.unified.unified_transaction);
 
-  // IMPORTANT: this is a projection of the SAME /api/evaluate response.
-  // The harness must never make follow-up calls to assemble the initial
-  // constitutional transaction. Lifecycle APIs remain optional later surfaces.
-  const constitutionalTransaction = {
+  // V71: canonical customer response preservation. Harmonic's returned
+  // constitutional_transaction is the source of truth for the universal V3
+  // customer boundary. The compatibility projection below exists only for
+  // older responses that predate the canonical transaction object. The harness
+  // must not reinterpret or reconstruct a newer canonical transaction.
+  const fallbackConstitutionalTransaction = {
     contract: "single_api_call",
     api_version: params.unified.api_version || assurance?.api_version || null,
     packet_id: params.unified.packet_id || layer.packet_id || null,
@@ -1013,6 +1017,20 @@ function evaluationFromUnifiedArtifact(params: {
     }
   };
 
+  const constitutionalTransaction =
+    returnedConstitutionalTransaction || fallbackConstitutionalTransaction;
+
+  const unifiedTransaction =
+    returnedUnifiedTransaction || {
+      api_version: params.unified.api_version || assurance?.api_version || null,
+      packet_id: params.unified.packet_id || null,
+      evidence_bearing: assurance?.evidence_bearing ?? false,
+      determination_id: assurance?.determination_id || null,
+      determination_hash: assurance?.determination_hash || null,
+      receipt_id: assurance?.receipt_id || null,
+      receipt_hash: assurance?.receipt_hash || null
+    };
+
   return {
     available: true,
     decision,
@@ -1028,15 +1046,7 @@ function evaluationFromUnifiedArtifact(params: {
     primitiveResults,
     raw: {
       ...layer,
-      unified_transaction: {
-        api_version: params.unified.api_version || assurance?.api_version || null,
-        packet_id: params.unified.packet_id || null,
-        evidence_bearing: assurance?.evidence_bearing ?? false,
-        determination_id: assurance?.determination_id || null,
-        determination_hash: assurance?.determination_hash || null,
-        receipt_id: assurance?.receipt_id || null,
-        receipt_hash: assurance?.receipt_hash || null
-      },
+      unified_transaction: unifiedTransaction,
       constitutional_transaction: constitutionalTransaction,
       harness_request_witness: params.requestWitness
     }
