@@ -935,17 +935,11 @@ function evaluationFromUnifiedArtifact(params: {
       ? parsePrimitiveResults(layer)
       : undefined;
 
-  const artifactDecision = decisionFromArtifact(layer);
-  const decision =
-    params.lane === "harmonic_governance" && artifactDecision !== "UNKNOWN"
-      ? artifactDecision
-      : mostRestrictiveDecision(
-          artifactDecision,
-          decisionFromPrimitiveResults(primitiveResults),
-          params.lane === "harmonic_governance"
-            ? decisionFromExecutionContext(classifyExecutionContext(params))
-            : "UNKNOWN"
-        );
+  // V70: customer-boundary jurisdiction. The universal /api/evaluate response is
+  // the sole source of the governed execution disposition. Local scenario/context
+  // classification may shape the request we send Harmonic, but it must never
+  // independently upgrade, downgrade, or otherwise synthesize the returned decision.
+  const decision = decisionFromArtifact(layer);
 
   const assurance = asRecord(params.unified.assurance);
   const constitutionalDetermination =
