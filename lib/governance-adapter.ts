@@ -576,6 +576,97 @@ function deriveContinuityHints(prompt: string) {
   };
 }
 
+
+
+type ObligationHint = {
+  detected: true;
+  kind: "prohibition" | "prerequisite";
+  status: "unsatisfied" | "satisfied" | "unresolved";
+  waiver_or_exception_active: boolean;
+  source: "bounded_custom_scenario_translation";
+  canonical_text: string;
+};
+
+function deriveObligationHints(prompt: string): ObligationHint | undefined {
+  const original = String(prompt || "").trim();
+  const text = original.toLowerCase();
+  if (!text) return undefined;
+
+  // This is intentionally bounded. The harness does not infer arbitrary policy,
+  // legal meaning, or domain obligations from general prose. It only promotes
+  // an obligation when the operator has explicitly declared the obligation and
+  // its present status in the custom scenario.
+  const explicitProhibition = [
+    /\b(?:currently\s+)?applicable\s+(?:constitutional\s+)?obligation\b[\s\S]{0,220}\b(?:prohibits?|forbids?|must\s+not)\b/,
+    /\b(?:requirement|obligation|prohibition)\s*:\s*[^\n]{0,220}\bmust\s+not\b/,
+    /\bthe\s+proposed\s+action\s+must\s+not\s+be\s+(?:executed|performed|continued|allowed)\b/,
+    /\bexplicit(?:ly)?\s+(?:prohibition|prohibits?|forbids?)\b/,
+  ].some((pattern) => pattern.test(text));
+
+  const explicitPrerequisite = [
+    /\bmandatory\s+(?:pre[- ]?execution\s+)?(?:obligation|requirement|prerequisite)\b/,
+    /\b(?:must|required to|requires?)\b[\s\S]{0,160}\bbefore\b/,
+    /\bcondition\s+precedent\b/,
+  ].some((pattern) => pattern.test(text));
+
+  if (!explicitProhibition && !explicitPrerequisite) return undefined;
+
+  const noWaiverOrException = [
+    /\bno\s+(?:applicable\s+)?waiver\b/,
+    /\bno\s+(?:applicable\s+)?exception\b/,
+    /\bwaiver\s*:\s*(?:none|no|false)\b/,
+    /\bexception\s*:\s*(?:none|no|false)\b/,
+    /\bunwaived\b/,
+  ].some((pattern) => pattern.test(text));
+
+  const activeWaiverOrException = !noWaiverOrException && [
+    /\bwaiver\b[\s\S]{0,80}\b(?:active|approved|granted|applies|in effect)\b/,
+    /\bexception\b[\s\S]{0,80}\b(?:active|approved|granted|applies|in effect)\b/,
+  ].some((pattern) => pattern.test(text));
+
+  const explicitUnsatisfied = [
+    /\b(?:requirement|obligation)\s+status\s*:\s*unsatisfied\b/,
+    /\bstatus\s*:\s*unsatisfied\b/,
+    /\b(?:obligation|requirement|prerequisite)\b[\s\S]{0,120}\b(?:unsatisfied|unfulfilled|not\s+satisfied|not\s+fulfilled|not\s+met)\b/,
+    /\bprohibition\b[\s\S]{0,160}\b(?:valid|current|active|applies|applicable)\b/,
+    /\b(?:valid|current|active|applicable)\b[\s\S]{0,160}\bprohibition\b/,
+  ].some((pattern) => pattern.test(text));
+
+  const explicitSatisfied = [
+    /\b(?:requirement|obligation)\s+status\s*:\s*satisfied\b/,
+    /\bstatus\s*:\s*satisfied\b/,
+    /\b(?:obligation|requirement|prerequisite)\b[\s\S]{0,120}\b(?:has been|is)\s+(?:satisfied|fulfilled|met|completed)\b/,
+  ].some((pattern) => pattern.test(text));
+
+  let status: ObligationHint["status"] = "unresolved";
+  if (activeWaiverOrException || explicitSatisfied) status = "satisfied";
+  else if (explicitUnsatisfied || (explicitProhibition && noWaiverOrException)) status = "unsatisfied";
+
+  const kind: ObligationHint["kind"] = explicitProhibition ? "prohibition" : "prerequisite";
+
+  // The V3 obligation primitive intentionally derives constitutional effect from
+  // caller-supplied request text. Emit a narrow canonical witness using vocabulary
+  // already frozen by that primitive instead of teaching the harness to decide.
+  let canonicalText: string;
+  if (status === "unsatisfied") {
+    canonicalText = kind === "prohibition"
+      ? "Institution policy requires that execution remain prohibited before the binding prohibition is satisfied, waived, or an applicable exception is established. The mandatory requirement has not been satisfied. No waiver or exception is active."
+      : "Institution policy requires that the mandatory prerequisite be satisfied before execution. The mandatory requirement has not been satisfied. No waiver or exception is active.";
+  } else if (status === "satisfied") {
+    canonicalText = "Institution policy requires that the mandatory prerequisite be satisfied before execution. The mandatory requirement has been satisfied or an applicable waiver or exception is active.";
+  } else {
+    canonicalText = "Institution policy requires that the mandatory prerequisite be satisfied before execution. The supplied scenario does not establish whether the mandatory requirement is satisfied, waived, or excepted.";
+  }
+
+  return {
+    detected: true,
+    kind,
+    status,
+    waiver_or_exception_active: activeWaiverOrException,
+    source: "bounded_custom_scenario_translation",
+    canonical_text: canonicalText,
+  };
+}
 function buildGovernancePackPayload(params: {
   prompt: string;
   response: string;
@@ -589,6 +680,10 @@ function buildGovernancePackPayload(params: {
   const context = classifyExecutionContext(params);
   const consequenceLevel = context.consequenceLevel;
   const actionType = context.surface;
+  const obligationHint = deriveObligationHints(params.prompt);
+  const scenarioPrompt = obligationHint
+    ? `${params.prompt}\n\n[HARMONIC HARNESS OBLIGATION WITNESS]\n${obligationHint.canonical_text}`
+    : params.prompt;
 
   return {
     packet_id: `${params.scenario}-${crypto.randomUUID()}`,
@@ -597,7 +692,8 @@ function buildGovernancePackPayload(params: {
     // governance input. The constitutional runtime must see the scenario
     // itself, not only the LLM response and fields inferred by this harness.
     prompt: params.prompt,
-    scenario_prompt: params.prompt,
+    scenario_prompt: scenarioPrompt,
+    ...(obligationHint ? { obligation_witness: obligationHint } : {}),
     scenario_label: params.scenario,
 
     continuity: params.governanceFacts
@@ -717,9 +813,10 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const continuity = asRecord(packet.continuity) || {};
   const authorityProvenance = asRecord(packet.authority_provenance);
   const downstreamAccountability = asRecord(packet.downstream_accountability);
+  const obligationWitness = asRecord(packet.obligation_witness);
 
   return {
-    adapter_build: "v3-authority-history-witness-2026-08-08",
+    adapter_build: "v72-bounded-obligation-witness-2026-08-10",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
@@ -730,6 +827,13 @@ function buildGovernanceRequestWitness(payload: unknown) {
       original_authority_supplied: Boolean(asRecord(authorityProvenance?.original_authority)),
       authority_change_supplied: Boolean(asRecord(authorityProvenance?.authority_change)),
       current_authority_supplied: Boolean(asRecord(authorityProvenance?.current_authority))
+    },
+    obligation: {
+      supplied: Boolean(obligationWitness),
+      kind: typeof obligationWitness?.kind === "string" ? obligationWitness.kind : null,
+      status: typeof obligationWitness?.status === "string" ? obligationWitness.status : null,
+      waiver_or_exception_active: typeof obligationWitness?.waiver_or_exception_active === "boolean" ? obligationWitness.waiver_or_exception_active : null,
+      source: typeof obligationWitness?.source === "string" ? obligationWitness.source : null
     },
     downstream_accountability: {
       supplied: Boolean(downstreamAccountability),
