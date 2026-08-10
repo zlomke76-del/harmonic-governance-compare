@@ -11,7 +11,8 @@
     "test:unified-harmonic": "node scripts/test-unified-harmonic-call.cjs",
     "test:v2-runtime-selector": "node scripts/test-v2-runtime-selector.cjs",
     "test:v2-protected-fetch": "node scripts/test-v2-protected-fetch.cjs",
-    "test:v3-universal-single-call": "node scripts/test-v3-universal-single-call.cjs"
+    "test:v3-universal-single-call": "node scripts/test-v3-universal-single-call.cjs",
+    "test:v3-customer-boundary-jurisdiction": "node scripts/test-v3-customer-boundary-jurisdiction.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
