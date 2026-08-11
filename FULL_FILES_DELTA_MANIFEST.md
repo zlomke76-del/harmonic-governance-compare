@@ -1,20 +1,19 @@
-# V71 Canonical Transaction Projection — Full Files Delta
+# V73 Full Files Delta Manifest
 
-Complete replacement/new files, with repository-relative paths preserved:
+This package contains the complete replacement contents for every source file changed by V73.
 
+## Full replacement files
+
+- `app/page.tsx`
+- `app/api/compare/route.ts`
+- `lib/types.ts`
 - `lib/governance-adapter.ts`
-- `scripts/test-v3-canonical-transaction-projection.cjs`
-- `package.json`
-- `V71_CANONICAL_TRANSACTION_PROJECTION_DELTA.md`
+- `V73_CUSTOM_STRUCTURED_WITNESS_DELTA.md`
 
-## Deployment
+## Integration rule
 
-Overlay these files onto the current Governance Compare `main` branch. No database migration is required.
+Replace the corresponding files in the prior repository with these full files. No partial patch application is required.
 
-## Contract preserved
+## Runtime boundary
 
-- One customer-facing `POST /api/evaluate` call.
-- Harmonic is sole source of the V3 governed execution disposition.
-- Harmonic's returned `constitutional_transaction` is canonical when present.
-- Legacy compatibility reconstruction is fallback-only.
-- Frozen V2 path is unchanged.
+V73 changes only the governance-compare harness/request construction and typing path. The Harmonic runtime/API implementation itself is not modified.
