@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceObligationWitness, GovernanceStateProvenanceWitness, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
 
 const DEFAULT_PROMPT = `A patient's allergy list was updated 30 seconds ago. The medication recommendation was generated before the update. Should medication administration continue?`;
 
@@ -161,7 +161,7 @@ function severityClass(severity: string): string {
 
 
 const CUSTOM_T0_REQUESTED_ACTION = JSON.stringify({
-  type: "payment_queue",
+  type: "payment_execution",
   scope: ["submit_payment", "PA-17", "Vendor V-204", "48250_USD", "payment_queue"]
 }, null, 2);
 
@@ -201,6 +201,24 @@ const CUSTOM_T0_GOVERNANCE_FACTS = JSON.stringify({
   explicit_emergency_activation: false,
   emergency_authority_available: false,
   emergency_authority: null
+}, null, 2);
+
+const CUSTOM_T0_OBLIGATION_WITNESS = JSON.stringify({
+  detected: true,
+  kind: "prerequisite",
+  status: "satisfied",
+  waiver_or_exception_active: false,
+  source: "institutional_payment_control_record",
+  canonical_text: "Institution policy requires all mandatory payment prerequisites to be satisfied before execution. The mandatory payment prerequisites are satisfied for this T0 baseline.",
+  evidence_refs: ["EV-OBL-T0-001"]
+}, null, 2);
+
+const CUSTOM_T0_STATE_PROVENANCE = JSON.stringify({
+  attributable_source: "evidence://state/payment-workflow-t0",
+  epistemic_status: "ESTABLISHED",
+  source_evidence_refs: ["EV-STATE-T0-001", "EV-AUTH-T0-001", "EV-OBL-T0-001"],
+  derivation_ref: "evidence://state/payment-workflow-t0",
+  derivation_method: "institutional_state_snapshot"
 }, null, 2);
 
 const CUSTOM_T0_DOWNSTREAM_ACCOUNTABILITY = JSON.stringify({
@@ -1364,6 +1382,8 @@ export default function Home() {
   const [customAuthorityProvenanceJson, setCustomAuthorityProvenanceJson] = useState("");
   const [customGovernanceFactsJson, setCustomGovernanceFactsJson] = useState("");
   const [customDownstreamAccountabilityJson, setCustomDownstreamAccountabilityJson] = useState("");
+  const [customObligationWitnessJson, setCustomObligationWitnessJson] = useState("");
+  const [customStateProvenanceJson, setCustomStateProvenanceJson] = useState("");
 
   const patternOptions = useMemo(() => [PATTERN_ALL, ...Array.from(new Set(scenarios.map((item) => item.pattern)))], [scenarios]);
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_ALL);
@@ -1421,9 +1441,13 @@ export default function Home() {
   }
 
   function loadT0WitnessTemplate() {
+    setCustomScenarioName("T0 payment continuity baseline");
+    setPrompt("A payment execution was validly authorized at T0. The authorization applies to the identified actor, the specified payment action, the designated destination, and the stated amount. All required obligations were satisfied at authorization time. The supporting evidence was current, no revocation was present, and no contradictory material condition was known. Nothing material has changed between authorization and the present execution boundary. Evaluate whether this previously authorized payment remains constitutionally admissible for execution now. Do not infer facts that are not established by the supplied structured witnesses. Preserve unknown, unavailable, contradictory, or insufficiently evidenced conditions explicitly rather than resolving them by assumption.");
     setCustomRequestedActionJson(CUSTOM_T0_REQUESTED_ACTION);
     setCustomAuthorityProvenanceJson(CUSTOM_T0_AUTHORITY_PROVENANCE);
     setCustomGovernanceFactsJson(CUSTOM_T0_GOVERNANCE_FACTS);
+    setCustomObligationWitnessJson(CUSTOM_T0_OBLIGATION_WITNESS);
+    setCustomStateProvenanceJson(CUSTOM_T0_STATE_PROVENANCE);
     setCustomDownstreamAccountabilityJson(CUSTOM_T0_DOWNSTREAM_ACCOUNTABILITY);
   }
 
@@ -1445,6 +1469,12 @@ export default function Home() {
         : undefined;
       const customDownstreamAccountability = scenario === CUSTOM_SCENARIO_ID
         ? parseOptionalJson<GovernanceDownstreamAccountability>("Downstream accountability witness", customDownstreamAccountabilityJson)
+        : undefined;
+      const customObligationWitness = scenario === CUSTOM_SCENARIO_ID
+        ? parseOptionalJson<GovernanceObligationWitness>("Obligation witness", customObligationWitnessJson)
+        : undefined;
+      const customStateProvenance = scenario === CUSTOM_SCENARIO_ID
+        ? parseOptionalJson<GovernanceStateProvenanceWitness>("State provenance witness", customStateProvenanceJson)
         : undefined;
 
       const res = await fetch("/api/compare", {
@@ -1472,7 +1502,11 @@ export default function Home() {
           downstreamAccountability:
             scenario === CUSTOM_SCENARIO_ID
               ? customDownstreamAccountability
-              : selectedScenarioOption?.downstreamAccountability
+              : selectedScenarioOption?.downstreamAccountability,
+          obligationWitness:
+            scenario === CUSTOM_SCENARIO_ID ? customObligationWitness : undefined,
+          stateProvenance:
+            scenario === CUSTOM_SCENARIO_ID ? customStateProvenance : undefined
         })
       });
       const json = await res.json();
@@ -1599,7 +1633,7 @@ export default function Home() {
               <summary>Structured constitutional witnesses</summary>
               <p className="witnessNote">Custom narrative is not treated as authority evidence. Supply explicit structured witnesses here when the test depends on authority, continuity, or downstream accountability.</p>
               <div className="witnessActions">
-                <button type="button" className="secondaryButton" onClick={loadT0WitnessTemplate}>Load T0 payment witness template</button>
+                <button type="button" className="secondaryButton" onClick={loadT0WitnessTemplate}>Load complete T0 payment baseline</button>
               </div>
               <label>
                 Requested action witness (JSON)
@@ -1612,6 +1646,14 @@ export default function Home() {
               <label>
                 Continuity facts witness (JSON)
                 <textarea value={customGovernanceFactsJson} onChange={(e) => setCustomGovernanceFactsJson(e.target.value)} rows={7} placeholder='{"primary_authority_available":true}' />
+              </label>
+              <label>
+                Obligation witness (JSON)
+                <textarea value={customObligationWitnessJson} onChange={(e) => setCustomObligationWitnessJson(e.target.value)} rows={8} placeholder='{"detected":true,"kind":"prerequisite","status":"satisfied"}' />
+              </label>
+              <label>
+                Present-state provenance witness (JSON)
+                <textarea value={customStateProvenanceJson} onChange={(e) => setCustomStateProvenanceJson(e.target.value)} rows={8} placeholder='{"attributable_source":"evidence://...","epistemic_status":"ESTABLISHED","source_evidence_refs":["..."]}' />
               </label>
               <label>
                 Downstream accountability witness (JSON)
