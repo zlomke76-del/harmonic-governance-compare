@@ -6,7 +6,7 @@ import {
   HARMONIC_ONLY_SYSTEM_PROMPT,
   RAW_SYSTEM_PROMPT
 } from "../../../lib/prompts";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, LaneName, LaneResult, RuntimeTarget } from "../../../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, GovernanceRequestedAction, LaneName, LaneResult, RuntimeTarget } from "../../../lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ const RequestSchema = z.object({
     emergency_authority: z.string().max(200).nullable().optional()
   }).optional(),
   authorityProvenance: z.record(z.string(), z.unknown()).optional(),
+  requestedAction: z.object({ type: z.string().min(1).max(200), scope: z.array(z.string().min(1).max(300)).min(1) }).optional(),
   downstreamAccountability: z.record(z.string(), z.unknown()).optional()
 });
 
@@ -75,6 +76,7 @@ async function runUnifiedGovernedLanes(params: {
   model?: string;
   governanceFacts?: import('../../../lib/types').GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
+  requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
 }): Promise<LaneResult[]> {
   const started = Date.now();
@@ -96,6 +98,7 @@ async function runUnifiedGovernedLanes(params: {
     scenario: params.scenario,
     governanceFacts: params.governanceFacts,
     authorityProvenance: params.authorityProvenance,
+    requestedAction: params.requestedAction,
     downstreamAccountability: params.downstreamAccountability
   });
 
@@ -137,6 +140,7 @@ export async function POST(req: Request) {
         model: parsed.model,
         governanceFacts: parsed.governanceFacts,
         authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
+        requestedAction: parsed.requestedAction as GovernanceRequestedAction | undefined,
         downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined
       })
     ]);
