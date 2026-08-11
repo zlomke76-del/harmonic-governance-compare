@@ -52,6 +52,12 @@ export type GovernanceAuthorityProvenance = {
   };
 };
 
+
+export type GovernanceRequestedAction = {
+  type: string;
+  scope: string[];
+};
+
 export type GovernanceDownstreamAccountability = {
   enforcement_layer?: {
     system: string;

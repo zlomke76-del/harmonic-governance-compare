@@ -5,6 +5,7 @@ import type {
   GovernanceAuthorityProvenance,
   GovernanceContinuityFacts,
   GovernanceDownstreamAccountability,
+  GovernanceRequestedAction,
   RuntimeTarget,
   LaneName,
   PrimitiveAdmissibility,
@@ -673,6 +674,7 @@ function buildGovernancePackPayload(params: {
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
+  requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
@@ -707,7 +709,7 @@ function buildGovernancePackPayload(params: {
         }
       : deriveContinuityHints(params.prompt),
 
-    requested_action: {
+    requested_action: params.requestedAction || {
       type: actionType,
       scope: [params.scenario]
     },
@@ -760,6 +762,7 @@ function buildPayload(params: {
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
+  requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
 }) {
   if (params.lane === "harmonic") {
@@ -812,15 +815,21 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const packet = asRecord(payload) || {};
   const continuity = asRecord(packet.continuity) || {};
   const authorityProvenance = asRecord(packet.authority_provenance);
+  const requestedAction = asRecord(packet.requested_action);
   const downstreamAccountability = asRecord(packet.downstream_accountability);
   const obligationWitness = asRecord(packet.obligation_witness);
 
   return {
-    adapter_build: "v72-bounded-obligation-witness-2026-08-10",
+    adapter_build: "v73-custom-structured-witness-2026-08-10",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
+    requested_action: {
+      supplied: Boolean(requestedAction),
+      type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
+      scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
+    },
     authority_provenance: {
       supplied: Boolean(authorityProvenance),
       authority_history_event_count: Array.isArray(authorityProvenance?.authority_history) ? authorityProvenance.authority_history.length : 0,
@@ -1229,6 +1238,7 @@ async function evaluateFrozenV2(params: {
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
+  requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   const { url, key } = v2Endpoint();
@@ -1369,6 +1379,7 @@ export async function evaluateUnifiedGovernance(params: {
   scenario: string;
   governanceFacts?: GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
+  requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   if (params.runtimeTarget === "v2") return evaluateFrozenV2(params);
