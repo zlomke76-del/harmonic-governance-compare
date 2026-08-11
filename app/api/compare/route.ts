@@ -6,7 +6,7 @@ import {
   HARMONIC_ONLY_SYSTEM_PROMPT,
   RAW_SYSTEM_PROMPT
 } from "../../../lib/prompts";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, GovernanceRequestedAction, LaneName, LaneResult, RuntimeTarget } from "../../../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceObligationWitness, GovernanceStateProvenanceWitness, LaneName, LaneResult, RuntimeTarget } from "../../../lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +28,9 @@ const RequestSchema = z.object({
   }).optional(),
   authorityProvenance: z.record(z.string(), z.unknown()).optional(),
   requestedAction: z.object({ type: z.string().min(1).max(200), scope: z.array(z.string().min(1).max(300)).min(1) }).optional(),
-  downstreamAccountability: z.record(z.string(), z.unknown()).optional()
+  downstreamAccountability: z.record(z.string(), z.unknown()).optional(),
+  obligationWitness: z.record(z.string(), z.unknown()).optional(),
+  stateProvenance: z.record(z.string(), z.unknown()).optional()
 });
 
 const laneConfig: Record<LaneName, { title: string; system: string }> = {
@@ -78,6 +80,8 @@ async function runUnifiedGovernedLanes(params: {
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
+  obligationWitness?: GovernanceObligationWitness;
+  stateProvenance?: GovernanceStateProvenanceWitness;
 }): Promise<LaneResult[]> {
   const started = Date.now();
 
@@ -99,7 +103,9 @@ async function runUnifiedGovernedLanes(params: {
     governanceFacts: params.governanceFacts,
     authorityProvenance: params.authorityProvenance,
     requestedAction: params.requestedAction,
-    downstreamAccountability: params.downstreamAccountability
+    downstreamAccountability: params.downstreamAccountability,
+    obligationWitness: params.obligationWitness,
+    stateProvenance: params.stateProvenance
   });
 
   const latencyMs = Date.now() - started;
@@ -141,7 +147,9 @@ export async function POST(req: Request) {
         governanceFacts: parsed.governanceFacts,
         authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
         requestedAction: parsed.requestedAction as GovernanceRequestedAction | undefined,
-        downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined
+        downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined,
+        obligationWitness: parsed.obligationWitness as GovernanceObligationWitness | undefined,
+        stateProvenance: parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined
       })
     ]);
 
