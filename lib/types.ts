@@ -53,6 +53,25 @@ export type GovernanceAuthorityProvenance = {
 };
 
 
+
+export type GovernanceObligationWitness = {
+  detected: true;
+  kind: "prohibition" | "prerequisite";
+  status: "unsatisfied" | "satisfied" | "unresolved";
+  waiver_or_exception_active: boolean;
+  source: string;
+  canonical_text: string;
+  evidence_refs?: string[];
+};
+
+export type GovernanceStateProvenanceWitness = {
+  attributable_source: string;
+  epistemic_status: string;
+  source_evidence_refs: string[];
+  derivation_ref?: string | null;
+  derivation_method?: string | null;
+};
+
 export type GovernanceRequestedAction = {
   type: string;
   scope: string[];

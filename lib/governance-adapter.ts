@@ -6,6 +6,8 @@ import type {
   GovernanceContinuityFacts,
   GovernanceDownstreamAccountability,
   GovernanceRequestedAction,
+  GovernanceObligationWitness,
+  GovernanceStateProvenanceWitness,
   RuntimeTarget,
   LaneName,
   PrimitiveAdmissibility,
@@ -676,13 +678,15 @@ function buildGovernancePackPayload(params: {
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
+  obligationWitness?: GovernanceObligationWitness;
+  stateProvenance?: GovernanceStateProvenanceWitness;
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
   const now = new Date().toISOString();
   const context = classifyExecutionContext(params);
   const consequenceLevel = context.consequenceLevel;
-  const actionType = context.surface;
-  const obligationHint = deriveObligationHints(params.prompt);
+  const actionType = params.requestedAction?.type || context.surface;
+  const obligationHint = params.obligationWitness || deriveObligationHints(params.prompt);
   const scenarioPrompt = obligationHint
     ? `${params.prompt}\n\n[HARMONIC HARNESS OBLIGATION WITNESS]\n${obligationHint.canonical_text}`
     : params.prompt;
@@ -696,7 +700,15 @@ function buildGovernancePackPayload(params: {
     prompt: params.prompt,
     scenario_prompt: scenarioPrompt,
     ...(obligationHint ? { obligation_witness: obligationHint } : {}),
+    ...(params.stateProvenance ? { present_state_provenance: params.stateProvenance } : {}),
     scenario_label: params.scenario,
+    harness_witness_meta: {
+      requested_action_explicit: Boolean(params.requestedAction),
+      authority_provenance_explicit: Boolean(params.authorityProvenance),
+      obligation_witness_explicit: Boolean(params.obligationWitness),
+      downstream_accountability_explicit: Boolean(params.downstreamAccountability),
+      state_provenance_explicit: Boolean(params.stateProvenance)
+    },
 
     continuity: params.governanceFacts
       ? {
@@ -727,7 +739,7 @@ function buildGovernancePackPayload(params: {
     authority_chain: {
       subject: "llm-agent-1",
       issuer: "harmonic-governance-compare",
-      scope: [params.scenario],
+      scope: params.requestedAction?.scope || [params.scenario],
       last_verified_at: now,
       chain: [
         { actor: "llm-agent-1", status: "active" },
@@ -818,34 +830,42 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const requestedAction = asRecord(packet.requested_action);
   const downstreamAccountability = asRecord(packet.downstream_accountability);
   const obligationWitness = asRecord(packet.obligation_witness);
+  const stateProvenance = asRecord(packet.present_state_provenance);
+  const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v73-custom-structured-witness-2026-08-10",
+    adapter_build: "v74-explicit-constitutional-witness-2026-08-10",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
     requested_action: {
-      supplied: Boolean(requestedAction),
+      supplied: witnessMeta.requested_action_explicit === true,
       type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
       scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
     },
     authority_provenance: {
-      supplied: Boolean(authorityProvenance),
+      supplied: witnessMeta.authority_provenance_explicit === true,
       authority_history_event_count: Array.isArray(authorityProvenance?.authority_history) ? authorityProvenance.authority_history.length : 0,
       original_authority_supplied: Boolean(asRecord(authorityProvenance?.original_authority)),
       authority_change_supplied: Boolean(asRecord(authorityProvenance?.authority_change)),
       current_authority_supplied: Boolean(asRecord(authorityProvenance?.current_authority))
     },
     obligation: {
-      supplied: Boolean(obligationWitness),
+      supplied: witnessMeta.obligation_witness_explicit === true,
       kind: typeof obligationWitness?.kind === "string" ? obligationWitness.kind : null,
       status: typeof obligationWitness?.status === "string" ? obligationWitness.status : null,
       waiver_or_exception_active: typeof obligationWitness?.waiver_or_exception_active === "boolean" ? obligationWitness.waiver_or_exception_active : null,
       source: typeof obligationWitness?.source === "string" ? obligationWitness.source : null
     },
+    state_provenance: {
+      supplied: witnessMeta.state_provenance_explicit === true,
+      attributable_source: typeof stateProvenance?.attributable_source === "string" ? stateProvenance.attributable_source : null,
+      epistemic_status: typeof stateProvenance?.epistemic_status === "string" ? stateProvenance.epistemic_status : null,
+      evidence_ref_count: Array.isArray(stateProvenance?.source_evidence_refs) ? stateProvenance.source_evidence_refs.length : 0
+    },
     downstream_accountability: {
-      supplied: Boolean(downstreamAccountability),
+      supplied: witnessMeta.downstream_accountability_explicit === true,
       enforcement_layer_supplied: Boolean(asRecord(downstreamAccountability?.enforcement_layer)),
       next_decision_owner_supplied: Boolean(asRecord(downstreamAccountability?.next_decision_owner)),
       consequence_owner_supplied: Boolean(asRecord(downstreamAccountability?.consequence_owner))
@@ -1240,6 +1260,8 @@ async function evaluateFrozenV2(params: {
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
+  obligationWitness?: GovernanceObligationWitness;
+  stateProvenance?: GovernanceStateProvenanceWitness;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   const { url, key } = v2Endpoint();
   if (!url || !key) {
@@ -1381,6 +1403,8 @@ export async function evaluateUnifiedGovernance(params: {
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
+  obligationWitness?: GovernanceObligationWitness;
+  stateProvenance?: GovernanceStateProvenanceWitness;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   if (params.runtimeTarget === "v2") return evaluateFrozenV2(params);
 
