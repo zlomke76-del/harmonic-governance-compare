@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
 
 const DEFAULT_PROMPT = `A patient's allergy list was updated 30 seconds ago. The medication recommendation was generated before the update. Should medication administration continue?`;
 
@@ -157,6 +157,78 @@ function severityClass(severity: string): string {
   if (value.includes("block") || value.includes("critical") || value.includes("fail")) return "signalBlock";
   if (value.includes("warn")) return "signalWarn";
   return "signalInfo";
+}
+
+
+const CUSTOM_T0_REQUESTED_ACTION = JSON.stringify({
+  type: "payment_queue",
+  scope: ["submit_payment", "PA-17", "Vendor V-204", "48250_USD", "payment_queue"]
+}, null, 2);
+
+const CUSTOM_T0_AUTHORITY_PROVENANCE = JSON.stringify({
+  authority_history: [
+    {
+      event_id: "AUTH-T0-001",
+      event_type: "authority_granted",
+      effective_at: "2026-08-11T01:30:00Z",
+      actor: { id: "treasury-director-a", name: "Treasury Operations Director A", role: "Treasury Operations Director", institution: "Test Financial Institution" },
+      source_ref: "evidence://authority/payment-release-t0",
+      evidence_refs: ["EV-AUTH-T0-001"]
+    }
+  ],
+  original_authority: {
+    actor: { id: "treasury-director-a", name: "Treasury Operations Director A", role: "Treasury Operations Director", institution: "Test Financial Institution" },
+    authority_source_type: "institutional_delegation_record",
+    authority_source_ref: "evidence://authority/payment-release-t0",
+    delegation_ref: "evidence://authority/payment-release-t0",
+    scope: ["submit_payment", "PA-17", "Vendor V-204", "48250_USD", "payment_queue"],
+    effective_at: "2026-08-11T01:30:00Z",
+    evidence_refs: ["EV-AUTH-T0-001"]
+  },
+  current_authority: {
+    status: "active",
+    actor: { id: "treasury-director-a", name: "Treasury Operations Director A", role: "Treasury Operations Director", institution: "Test Financial Institution" },
+    authority_source_ref: "evidence://authority/payment-release-t0",
+    scope: ["submit_payment", "PA-17", "Vendor V-204", "48250_USD", "payment_queue"],
+    evidence_refs: ["EV-AUTH-T0-001"]
+  }
+}, null, 2);
+
+const CUSTOM_T0_GOVERNANCE_FACTS = JSON.stringify({
+  life_safety_context: false,
+  primary_authority_available: true,
+  emergency_continuity_defined: false,
+  explicit_emergency_activation: false,
+  emergency_authority_available: false,
+  emergency_authority: null
+}, null, 2);
+
+const CUSTOM_T0_DOWNSTREAM_ACCOUNTABILITY = JSON.stringify({
+  enforcement_layer: {
+    system: "Test Financial Institution",
+    component: "payment_queue",
+    mode: "pre-dispatch",
+    enforcement_witness_ref: "evidence://execution/payment-queue-t0"
+  },
+  next_decision_owner: {
+    actor: { id: "treasury-director-a", name: "Treasury Operations Director A", role: "Treasury Operations Director", institution: "Test Financial Institution" },
+    authority_ref: "evidence://authority/payment-release-t0"
+  },
+  consequence_owner: {
+    actor: { id: "treasury-operations", name: "Treasury Operations", role: "Institutional consequence owner", institution: "Test Financial Institution" },
+    responsibility_ref: "evidence://accountability/payment-release"
+  }
+}, null, 2);
+
+function parseOptionalJson<T>(label: string, text: string): T | undefined {
+  if (!text.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(text) as T;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("must be a JSON object");
+    return parsed;
+  } catch (error) {
+    throw new Error(`${label} is not valid JSON: ${error instanceof Error ? error.message : "parse error"}`);
+  }
 }
 
 function scenarioOptions(): ScenarioOption[] {
@@ -1288,6 +1360,10 @@ export default function Home() {
   const [result, setResult] = useState<CompareResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanIndex, setScanIndex] = useState(-1);
+  const [customRequestedActionJson, setCustomRequestedActionJson] = useState("");
+  const [customAuthorityProvenanceJson, setCustomAuthorityProvenanceJson] = useState("");
+  const [customGovernanceFactsJson, setCustomGovernanceFactsJson] = useState("");
+  const [customDownstreamAccountabilityJson, setCustomDownstreamAccountabilityJson] = useState("");
 
   const patternOptions = useMemo(() => [PATTERN_ALL, ...Array.from(new Set(scenarios.map((item) => item.pattern)))], [scenarios]);
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_ALL);
@@ -1344,6 +1420,13 @@ export default function Home() {
     if (firstScenarioForPattern) applyScenario(firstScenarioForPattern.id);
   }
 
+  function loadT0WitnessTemplate() {
+    setCustomRequestedActionJson(CUSTOM_T0_REQUESTED_ACTION);
+    setCustomAuthorityProvenanceJson(CUSTOM_T0_AUTHORITY_PROVENANCE);
+    setCustomGovernanceFactsJson(CUSTOM_T0_GOVERNANCE_FACTS);
+    setCustomDownstreamAccountabilityJson(CUSTOM_T0_DOWNSTREAM_ACCOUNTABILITY);
+  }
+
   async function runCompare() {
     setLoading(true);
     setError(null);
@@ -1351,6 +1434,19 @@ export default function Home() {
     setScanIndex(0);
 
     try {
+      const customRequestedAction = scenario === CUSTOM_SCENARIO_ID
+        ? parseOptionalJson<GovernanceRequestedAction>("Requested action witness", customRequestedActionJson)
+        : undefined;
+      const customAuthorityProvenance = scenario === CUSTOM_SCENARIO_ID
+        ? parseOptionalJson<GovernanceAuthorityProvenance>("Authority provenance witness", customAuthorityProvenanceJson)
+        : undefined;
+      const customGovernanceFacts = scenario === CUSTOM_SCENARIO_ID
+        ? parseOptionalJson<import('../lib/types').GovernanceContinuityFacts>("Continuity facts witness", customGovernanceFactsJson)
+        : undefined;
+      const customDownstreamAccountability = scenario === CUSTOM_SCENARIO_ID
+        ? parseOptionalJson<GovernanceDownstreamAccountability>("Downstream accountability witness", customDownstreamAccountabilityJson)
+        : undefined;
+
       const res = await fetch("/api/compare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1363,15 +1459,19 @@ export default function Home() {
           model: selectedModel,
           governanceFacts:
             scenario === CUSTOM_SCENARIO_ID
-              ? undefined
+              ? customGovernanceFacts
               : selectedScenarioOption?.governanceFacts,
           authorityProvenance:
             scenario === CUSTOM_SCENARIO_ID
-              ? undefined
+              ? customAuthorityProvenance
               : selectedScenarioOption?.authorityProvenance,
+          requestedAction:
+            scenario === CUSTOM_SCENARIO_ID
+              ? customRequestedAction
+              : undefined,
           downstreamAccountability:
             scenario === CUSTOM_SCENARIO_ID
-              ? undefined
+              ? customDownstreamAccountability
               : selectedScenarioOption?.downstreamAccountability
         })
       });
@@ -1492,6 +1592,33 @@ export default function Home() {
               Custom scenario name
               <input value={customScenarioName} onChange={(e) => setCustomScenarioName(e.target.value)} />
             </label>
+          ) : null}
+
+          {scenario === CUSTOM_SCENARIO_ID ? (
+            <details className="witnessPanel" open>
+              <summary>Structured constitutional witnesses</summary>
+              <p className="witnessNote">Custom narrative is not treated as authority evidence. Supply explicit structured witnesses here when the test depends on authority, continuity, or downstream accountability.</p>
+              <div className="witnessActions">
+                <button type="button" className="secondaryButton" onClick={loadT0WitnessTemplate}>Load T0 payment witness template</button>
+              </div>
+              <label>
+                Requested action witness (JSON)
+                <textarea value={customRequestedActionJson} onChange={(e) => setCustomRequestedActionJson(e.target.value)} rows={6} placeholder='{"type":"payment_queue","scope":["submit_payment"]}' />
+              </label>
+              <label>
+                Authority provenance witness (JSON)
+                <textarea value={customAuthorityProvenanceJson} onChange={(e) => setCustomAuthorityProvenanceJson(e.target.value)} rows={12} placeholder='{"original_authority":{...},"current_authority":{...}}' />
+              </label>
+              <label>
+                Continuity facts witness (JSON)
+                <textarea value={customGovernanceFactsJson} onChange={(e) => setCustomGovernanceFactsJson(e.target.value)} rows={7} placeholder='{"primary_authority_available":true}' />
+              </label>
+              <label>
+                Downstream accountability witness (JSON)
+                <textarea value={customDownstreamAccountabilityJson} onChange={(e) => setCustomDownstreamAccountabilityJson(e.target.value)} rows={10} placeholder='{"enforcement_layer":{...}}' />
+              </label>
+              <p className="witnessBoundary"><strong>Boundary:</strong> this harness does not infer these witnesses from prose. Present-state source provenance is not silently invented; if the runtime contract does not receive it, the resulting epistemic limitation remains visible.</p>
+            </details>
           ) : null}
 
           <label>
