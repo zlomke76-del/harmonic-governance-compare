@@ -1472,6 +1472,93 @@ export async function evaluateUnifiedGovernance(params: {
   };
 }
 
+
+export function projectExactPacketReplay(params: {
+  unified: Record<string, unknown>;
+  packet: Record<string, unknown>;
+  outboundSha256: string;
+  outboundBytes: number;
+}): { harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation } {
+  const packetId = typeof params.packet.packet_id === "string" ? params.packet.packet_id : null;
+  const requestedAction = asRecord(params.packet.requested_action);
+  const authorityProvenance = asRecord(params.packet.authority_provenance);
+  const obligationWitness = asRecord(params.packet.obligation_witness);
+  const stateProvenance = asRecord(params.packet.present_state_provenance);
+  const downstreamAccountability = asRecord(params.packet.downstream_accountability);
+  const continuity = asRecord(params.packet.continuity) || {};
+
+  // This mirrors the normal witness shape for UI compatibility, but is descriptive only.
+  // It does not create or transform any field in the outbound replay packet.
+  const requestWitness = {
+    adapter_build: "v75-exact-packet-replay-2026-08-14",
+    packet_id: packetId,
+    prompt_present: typeof params.packet.prompt === "string" && params.packet.prompt.trim().length > 0,
+    scenario_prompt_present: typeof params.packet.scenario_prompt === "string" && params.packet.scenario_prompt.trim().length > 0,
+    scenario_label: typeof params.packet.scenario_label === "string" ? params.packet.scenario_label : null,
+    requested_action: {
+      supplied: Boolean(requestedAction),
+      type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
+      scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
+    },
+    authority_provenance: {
+      supplied: Boolean(authorityProvenance),
+      authority_history_event_count: Array.isArray(authorityProvenance?.authority_history) ? authorityProvenance.authority_history.length : 0,
+      original_authority_supplied: Boolean(asRecord(authorityProvenance?.original_authority)),
+      authority_change_supplied: Boolean(asRecord(authorityProvenance?.authority_change)),
+      current_authority_supplied: Boolean(asRecord(authorityProvenance?.current_authority))
+    },
+    obligation: {
+      supplied: Boolean(obligationWitness),
+      kind: typeof obligationWitness?.kind === "string" ? obligationWitness.kind : null,
+      status: typeof obligationWitness?.status === "string" ? obligationWitness.status : null,
+      waiver_or_exception_active: typeof obligationWitness?.waiver_or_exception_active === "boolean" ? obligationWitness.waiver_or_exception_active : null,
+      source: typeof obligationWitness?.source === "string" ? obligationWitness.source : null
+    },
+    state_provenance: {
+      supplied: Boolean(stateProvenance),
+      attributable_source: typeof stateProvenance?.attributable_source === "string" ? stateProvenance.attributable_source : null,
+      epistemic_status: typeof stateProvenance?.epistemic_status === "string" ? stateProvenance.epistemic_status : null,
+      evidence_ref_count: Array.isArray(stateProvenance?.source_evidence_refs)
+        ? stateProvenance.source_evidence_refs.length
+        : Array.isArray(stateProvenance?.evidence_refs) ? stateProvenance.evidence_refs.length : 0
+    },
+    downstream_accountability: {
+      supplied: Boolean(downstreamAccountability),
+      enforcement_layer_supplied: Boolean(asRecord(downstreamAccountability?.enforcement_layer)),
+      next_decision_owner_supplied: Boolean(asRecord(downstreamAccountability?.next_decision_owner)),
+      consequence_owner_supplied: Boolean(asRecord(downstreamAccountability?.consequence_owner))
+    },
+    continuity: {
+      life_safety_context: continuity.life_safety_context ?? null,
+      primary_authority_available: continuity.primary_authority_available ?? null,
+      emergency_continuity_defined: continuity.emergency_continuity_defined ?? null,
+      explicit_emergency_activation: continuity.explicit_emergency_activation ?? null,
+      emergency_authority_available: continuity.emergency_authority_available ?? null,
+      emergency_authority: continuity.emergency_authority ?? null
+    },
+    mode: "exact_packet_replay",
+    exact_packet_replay: true,
+    semantic_translation_performed: false,
+    llm_involved_in_packet_construction: false,
+    outbound_sha256: params.outboundSha256,
+    outbound_bytes: params.outboundBytes,
+    transport_rule: "The operator-supplied JSON body was forwarded to /api/evaluate without semantic translation."
+  };
+
+  const prompt = "Exact packet replay; no model inference or harness semantic translation.";
+  const response = typeof params.packet.response === "string" ? params.packet.response : "";
+  const scenario = packetId || "Exact packet replay";
+
+  return {
+    harmonic: evaluationFromUnifiedArtifact({
+      lane: "harmonic", unified: params.unified, prompt, response, scenario, requestWitness
+    }),
+    harmonic_governance: evaluationFromUnifiedArtifact({
+      lane: "harmonic_governance", unified: params.unified, prompt, response, scenario, requestWitness
+    })
+  };
+}
+
 export async function evaluateGovernance(params: {
   lane: LaneName;
   prompt: string;
