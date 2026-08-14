@@ -1102,8 +1102,16 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
   const integrity = getRawRecord(transaction.integrity);
   const dependencyManifest = getRawRecord(dependencies.manifest);
   const presentStateBinding = getRawRecord(presentState.binding);
+  const requestWitness = getRawRecord(raw.harness_request_witness);
+  const exactReplay = requestWitness.mode === "exact_packet_replay";
 
   const rows = [
+    ...(exactReplay ? [
+      { label: "Replay Mode", value: "EXACT_PACKET_REPLAY · no model · no semantic translation" },
+      { label: "Outbound Packet SHA-256", value: String(requestWitness.outbound_sha256 || "Not returned") },
+      { label: "Outbound Packet Bytes", value: String(requestWitness.outbound_bytes ?? "Not returned") },
+      { label: "Replay Packet ID", value: String(requestWitness.packet_id || "Not returned") }
+    ] : []),
     { label: "Execution Packet", value: stableArtifactId(result, lane) },
     { label: "API Contract", value: transaction.contract === "single_api_call" ? "Universal single call · /api/evaluate" : "Universal runtime response" },
     { label: "Runtime", value: lane?.evaluation.available ? "External Harmonic / Governance Pack" : "Local fallback / endpoint not configured" },
@@ -1384,6 +1392,8 @@ export default function Home() {
   const [customDownstreamAccountabilityJson, setCustomDownstreamAccountabilityJson] = useState("");
   const [customObligationWitnessJson, setCustomObligationWitnessJson] = useState("");
   const [customStateProvenanceJson, setCustomStateProvenanceJson] = useState("");
+  const [exactPacketReplay, setExactPacketReplay] = useState(false);
+  const [exactPacketJson, setExactPacketJson] = useState("");
 
   const patternOptions = useMemo(() => [PATTERN_ALL, ...Array.from(new Set(scenarios.map((item) => item.pattern)))], [scenarios]);
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_ALL);
@@ -1458,6 +1468,34 @@ export default function Home() {
     setScanIndex(0);
 
     try {
+      if (scenario === CUSTOM_SCENARIO_ID && exactPacketReplay) {
+        const trimmed = exactPacketJson.trim();
+        if (!trimmed) throw new Error("Exact packet replay requires a JSON packet.");
+        try {
+          const parsed = JSON.parse(exactPacketJson);
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("Packet must be a JSON object.");
+          }
+          if (typeof parsed.packet_id !== "string" || !parsed.packet_id.trim()) {
+            throw new Error("Packet must contain an explicit packet_id.");
+          }
+        } catch (err) {
+          throw new Error(`Exact packet replay JSON is invalid: ${err instanceof Error ? err.message : "unknown parse error"}`);
+        }
+
+        const replayRes = await fetch("/api/replay-exact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packetJson: exactPacketJson })
+        });
+        const replayJson = await replayRes.json();
+        if (!replayRes.ok) {
+          throw new Error(replayJson.error || "Exact packet replay failed.");
+        }
+        setResult(replayJson as CompareResponse);
+        setScanIndex(SCAN_LABELS.length - 1);
+        return;
+      }
       const customRequestedAction = scenario === CUSTOM_SCENARIO_ID
         ? parseOptionalJson<GovernanceRequestedAction>("Requested action witness", customRequestedActionJson)
         : undefined;
@@ -1629,6 +1667,38 @@ export default function Home() {
           ) : null}
 
           {scenario === CUSTOM_SCENARIO_ID ? (
+            <section className="exactReplayPanel">
+              <label className="checkbox exactReplayToggle">
+                <input
+                  type="checkbox"
+                  checked={exactPacketReplay}
+                  onChange={(e) => setExactPacketReplay(e.target.checked)}
+                />
+                Exact packet replay — literal transport, no model, no semantic translation
+              </label>
+              {exactPacketReplay ? (
+                <>
+                  <p className="witnessBoundary"><strong>Transport boundary:</strong> the JSON text below is validated for syntax and an explicit packet_id, then forwarded unchanged as the HTTP body to the configured Harmonic <code>/api/evaluate</code> endpoint. The harness does not infer, add, remove, rename, normalize, or reinterpret constitutional facts.</p>
+                  <label>
+                    Exact /api/evaluate request JSON
+                    <textarea
+                      value={exactPacketJson}
+                      onChange={(e) => setExactPacketJson(e.target.value)}
+                      rows={20}
+                      spellCheck={false}
+                      placeholder='{
+  "packet_id": "preserved-evaluation-packet-001",
+  ...
+}'
+                    />
+                  </label>
+                  <p className="witnessNote">Replay integrity is checked against packet_id. The Engineering View records the SHA-256 and byte length of the exact outbound JSON body.</p>
+                </>
+              ) : null}
+            </section>
+          ) : null}
+
+          {scenario === CUSTOM_SCENARIO_ID && !exactPacketReplay ? (
             <details className="witnessPanel" open>
               <summary>Structured constitutional witnesses</summary>
               <p className="witnessNote">Custom narrative is not treated as authority evidence. Supply explicit structured witnesses here when the test depends on authority, continuity, or downstream accountability.</p>
@@ -1663,23 +1733,27 @@ export default function Home() {
             </details>
           ) : null}
 
-          <label>
-            Test prompt
-            <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
-          </label>
+          {!(scenario === CUSTOM_SCENARIO_ID && exactPacketReplay) ? (
+            <>
+              <label>
+                Test prompt
+                <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
+                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
+              </label>
 
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={includeHarmonicOnly}
-              onChange={(e) => setIncludeHarmonicOnly(e.target.checked)}
-            />
-            Include Continuation Stabilizer layer
-          </label>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={includeHarmonicOnly}
+                  onChange={(e) => setIncludeHarmonicOnly(e.target.checked)}
+                />
+                Include Continuation Stabilizer layer
+              </label>
+            </>
+          ) : null}
 
-          <button onClick={runCompare} disabled={loading || !prompt.trim()}>
-            <span>{loading ? "Evaluating runtime" : result ? "Run again" : "Run live evaluation"}</span>
+          <button onClick={runCompare} disabled={loading || (scenario === CUSTOM_SCENARIO_ID && exactPacketReplay ? !exactPacketJson.trim() : !prompt.trim())}>
+            <span>{loading ? "Evaluating runtime" : result ? "Run again" : scenario === CUSTOM_SCENARIO_ID && exactPacketReplay ? "Replay exact packet" : "Run live evaluation"}</span>
           </button>
 
           {error ? <p className="error">{error}</p> : null}
