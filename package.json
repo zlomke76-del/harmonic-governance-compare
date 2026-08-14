@@ -14,7 +14,8 @@
     "test:v3-universal-single-call": "node scripts/test-v3-universal-single-call.cjs",
     "test:v3-customer-boundary-jurisdiction": "node scripts/test-v3-customer-boundary-jurisdiction.cjs",
     "test:v3-canonical-transaction-projection": "node scripts/test-v3-canonical-transaction-projection.cjs",
-    "test:v72-obligation-witness": "node scripts/test-v72-obligation-witness.cjs"
+    "test:v72-obligation-witness": "node scripts/test-v72-obligation-witness.cjs",
+    "test:v75-exact-packet-replay": "node scripts/test-v75-exact-packet-replay.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
