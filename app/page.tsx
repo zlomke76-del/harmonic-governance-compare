@@ -1649,8 +1649,6 @@ export default function Home() {
         <ExecutionDiagram loading={loading} result={result} scanIndex={scanIndex} />
       </section>
 
-      <ConstitutionalJurisdiction />
-
       <section className="workspace">
         <section className="panel inputPanel">
           <div className="sectionTitle">
@@ -1852,6 +1850,8 @@ export default function Home() {
           )}
         </section>
       </section>
+
+      <ConstitutionalJurisdiction />
 
       <InsightBar />
     </main>
