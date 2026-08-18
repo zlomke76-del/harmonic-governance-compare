@@ -137,8 +137,8 @@ export async function POST(req: Request) {
     ];
 
     const payload: CompareResponse & { replayTransport: Record<string, unknown> } = {
-      runtimeTarget: "v3",
-      runtimeLabel: "Current V3 · Exact packet replay",
+      runtimeTarget: "v4",
+      runtimeLabel: "Current V4 · Exact packet replay",
       prompt: "Exact packet replay; no model inference or harness semantic translation.",
       scenario: packetId,
       model: "No model · literal packet transport",
