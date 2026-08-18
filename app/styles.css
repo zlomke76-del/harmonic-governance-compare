@@ -2602,143 +2602,157 @@ pre {
   .witnessPanel > summary small { display: none; }
 }
 
-/* V77 — possible runtime dispositions + engineering data copy */
-.runtimeDispositions {
+/* V78 — runtime disposition activation + engineering copy control */
+.runtimeDispositionPanel {
+  margin-bottom: 14px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 22px;
-  padding: 18px;
-  background: rgba(7, 12, 20, 0.62);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.025);
 }
-
-.runtimeDispositionsHeader {
-  margin-bottom: 12px;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.runtimeDispositionGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.runtimeDisposition {
-  position: relative;
-  min-height: 112px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid rgba(137, 166, 209, 0.18);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.018);
-  opacity: 0.47;
-  filter: saturate(0.5);
-  transition: opacity 180ms ease, filter 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-}
-
-.runtimeDisposition strong {
-  display: block;
-  margin-bottom: 7px;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-}
-
-.runtimeDisposition p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.runtimeDispositionGlyph {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: 10px;
-  font-weight: 900;
-}
-
-.runtimeDisposition.active {
-  opacity: 1;
-  filter: none;
-  transform: translateY(-1px);
-}
-
-.runtimeDisposition.continue { color: var(--green); }
-.runtimeDisposition.constrain { color: var(--gold); }
-.runtimeDisposition.escalate { color: #ffad42; }
-.runtimeDisposition.block { color: #ff655f; }
-
-.runtimeDisposition.continue.active {
-  border-color: rgba(100, 240, 161, 0.72);
-  background: linear-gradient(180deg, rgba(100, 240, 161, 0.12), rgba(100, 240, 161, 0.025));
-  box-shadow: 0 0 28px rgba(100, 240, 161, 0.13), inset 0 0 26px rgba(100, 240, 161, 0.04);
-}
-
-.runtimeDisposition.constrain.active {
-  border-color: rgba(245, 197, 66, 0.88);
-  background: linear-gradient(180deg, rgba(245, 197, 66, 0.14), rgba(245, 197, 66, 0.025));
-  box-shadow: 0 0 30px rgba(245, 197, 66, 0.18), inset 0 0 28px rgba(245, 197, 66, 0.05);
-}
-
-.runtimeDisposition.escalate.active {
-  border-color: rgba(255, 173, 66, 0.82);
-  background: linear-gradient(180deg, rgba(255, 173, 66, 0.13), rgba(255, 173, 66, 0.025));
-  box-shadow: 0 0 30px rgba(255, 173, 66, 0.16), inset 0 0 28px rgba(255, 173, 66, 0.05);
-}
-
-.runtimeDisposition.block.active {
-  border-color: rgba(255, 101, 95, 0.82);
-  background: linear-gradient(180deg, rgba(255, 101, 95, 0.13), rgba(255, 101, 95, 0.025));
-  box-shadow: 0 0 30px rgba(255, 101, 95, 0.16), inset 0 0 28px rgba(255, 101, 95, 0.05);
-}
-
-.runtimeDispositionState {
-  position: absolute;
-  top: 8px;
-  right: 9px;
-  padding: 3px 6px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-}
-
-.runtimeDispositionsNote {
-  margin: 12px 4px 0;
-  color: var(--soft);
-  font-size: 11px;
-  text-align: center;
-}
-
-.engineeringView > summary {
+.runtimeDispositionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 10px;
 }
-
-.engineeringView > summary .copyButton {
-  margin-left: auto;
+.runtimeDispositionHeader > span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
 }
-
+.runtimeDispositionHeader > em {
+  color: var(--soft);
+  font-size: 11px;
+  font-style: normal;
+}
+.runtimeDispositionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+.runtimeDispositionCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: rgba(0,0,0,.18);
+  opacity: .48;
+  filter: saturate(.55);
+  box-shadow: none;
+  transition: opacity 180ms ease, filter 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+.runtimeDispositionCard.isDormant strong,
+.runtimeDispositionCard.isDormant .runtimeDispositionGlyph { color: var(--muted); }
+.runtimeDispositionCard.isActive {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-1px);
+}
+.runtimeDispositionCard.decisionAllow.isActive {
+  border-color: rgba(70, 255, 158, .62);
+  background: linear-gradient(180deg, rgba(34, 197, 94, .12), rgba(0,0,0,.2));
+  box-shadow: 0 0 0 1px rgba(70,255,158,.10), 0 0 28px rgba(34,197,94,.15), inset 0 0 24px rgba(34,197,94,.05);
+}
+.runtimeDispositionCard.decisionConstrain.isActive {
+  border-color: rgba(255, 193, 7, .78);
+  background: linear-gradient(180deg, rgba(255,193,7,.14), rgba(0,0,0,.2));
+  box-shadow: 0 0 0 1px rgba(255,193,7,.11), 0 0 30px rgba(255,170,0,.19), inset 0 0 24px rgba(255,193,7,.06);
+}
+.runtimeDispositionCard.decisionEscalate.isActive {
+  border-color: rgba(255, 145, 48, .72);
+  background: linear-gradient(180deg, rgba(255,145,48,.13), rgba(0,0,0,.2));
+  box-shadow: 0 0 0 1px rgba(255,145,48,.10), 0 0 28px rgba(255,145,48,.16), inset 0 0 24px rgba(255,145,48,.05);
+}
+.runtimeDispositionCard.decisionBlock.isActive {
+  border-color: rgba(255, 82, 82, .72);
+  background: linear-gradient(180deg, rgba(255,82,82,.13), rgba(0,0,0,.2));
+  box-shadow: 0 0 0 1px rgba(255,82,82,.10), 0 0 28px rgba(255,82,82,.16), inset 0 0 24px rgba(255,82,82,.05);
+}
+.runtimeDispositionGlyph {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 900;
+}
+.runtimeDispositionCard.isActive.decisionAllow .runtimeDispositionGlyph,
+.runtimeDispositionCard.isActive.decisionAllow strong { color: #5cffad; }
+.runtimeDispositionCard.isActive.decisionConstrain .runtimeDispositionGlyph,
+.runtimeDispositionCard.isActive.decisionConstrain strong { color: #ffc928; }
+.runtimeDispositionCard.isActive.decisionEscalate .runtimeDispositionGlyph,
+.runtimeDispositionCard.isActive.decisionEscalate strong { color: #ff9f43; }
+.runtimeDispositionCard.isActive.decisionBlock .runtimeDispositionGlyph,
+.runtimeDispositionCard.isActive.decisionBlock strong { color: #ff6262; }
+.runtimeDispositionCard strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  letter-spacing: .04em;
+}
+.runtimeDispositionCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.runtimeDispositionActive {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  opacity: .82;
+}
+.runtimeDispositionFootnote {
+  margin: 10px 2px 0;
+  color: var(--soft);
+  font-size: 10px;
+  text-align: center;
+}
+.engineeringToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(0,0,0,.18);
+}
+.engineeringToolbar > div { min-width: 0; }
+.engineeringToolbar strong {
+  display: block;
+  font-size: 12px;
+}
+.engineeringToolbar span {
+  display: block;
+  margin-top: 3px;
+  color: var(--soft);
+  font-size: 10px;
+}
+.engineeringToolbar .copyButton {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 14px;
+}
 @media (max-width: 980px) {
-  .runtimeDispositionGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .runtimeDispositionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
 @media (max-width: 620px) {
-  .runtimeDispositionGrid {
-    grid-template-columns: 1fr;
-  }
+  .runtimeDispositionHeader, .engineeringToolbar { align-items: flex-start; flex-direction: column; }
+  .runtimeDispositionGrid { grid-template-columns: 1fr; }
 }

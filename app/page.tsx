@@ -1083,47 +1083,41 @@ function stableArtifactId(result: CompareResponse, lane?: LaneResult): string {
   return `${result.scenario}-${result.generatedAt}`;
 }
 
-function RuntimeDispositions({ decision }: { decision: GovernanceDecision }) {
-  const activeDisposition = decision === "ALLOW"
-    ? "continue"
-    : decision === "CONSTRAIN"
-      ? "constrain"
-      : decision === "ESCALATE" || decision === "EMERGENCY_CONTINUITY"
-        ? "escalate"
-        : decision === "BLOCK"
-          ? "block"
-          : null;
-
-  const dispositions = [
-    { id: "continue", glyph: "✓", label: "CONTINUE", detail: "Execution remains admissible." },
-    { id: "constrain", glyph: "⚖", label: "CONSTRAIN", detail: "Bounded continuation with required limits." },
-    { id: "escalate", glyph: "!", label: "ESCALATE", detail: "Human review required." },
-    { id: "block", glyph: "■", label: "BLOCK", detail: "Execution not admissible." }
-  ] as const;
+function RuntimeDispositionStrip({ decision }: { decision?: GovernanceDecision }) {
+  const normalized = decision === "EMERGENCY_CONTINUITY" ? "CONSTRAIN" : decision;
+  const dispositions: Array<{ decision: GovernanceDecision; label: string; detail: string; glyph: string }> = [
+    { decision: "ALLOW", label: "CONTINUE", detail: "Execution remains admissible.", glyph: "✓" },
+    { decision: "CONSTRAIN", label: "CONSTRAIN", detail: "Bounded continuation with required limits.", glyph: "⚖" },
+    { decision: "ESCALATE", label: "ESCALATE", detail: "Human review required.", glyph: "△" },
+    { decision: "BLOCK", label: "BLOCK", detail: "Execution not admissible.", glyph: "⬢" }
+  ];
 
   return (
-    <section className="runtimeDispositions" aria-label="Possible runtime dispositions">
-      <div className="runtimeDispositionsHeader">Possible runtime dispositions</div>
+    <section className="runtimeDispositionPanel" aria-label="Possible runtime dispositions">
+      <div className="runtimeDispositionHeader">
+        <span>Possible Runtime Dispositions</span>
+        <em>{normalized && normalized !== "UNKNOWN" ? `Returned: ${decisionBanner(decision!).label}` : "No disposition returned yet"}</em>
+      </div>
       <div className="runtimeDispositionGrid">
         {dispositions.map((item) => {
-          const active = activeDisposition === item.id;
+          const active = normalized === item.decision;
           return (
-            <article
-              key={item.id}
-              className={`runtimeDisposition ${item.id} ${active ? "active" : "inactive"}`}
+            <div
+              key={item.label}
+              className={`runtimeDispositionCard ${decisionClass(item.decision)} ${active ? "isActive" : "isDormant"}`}
               aria-current={active ? "true" : undefined}
             >
-              <span className="runtimeDispositionGlyph" aria-hidden="true">{item.glyph}</span>
+              <span className="runtimeDispositionGlyph">{item.glyph}</span>
               <div>
                 <strong>{item.label}</strong>
                 <p>{item.detail}</p>
               </div>
-              {active ? <span className="runtimeDispositionState">ACTIVE</span> : null}
-            </article>
+              {active ? <span className="runtimeDispositionActive">ACTIVE</span> : null}
+            </div>
           );
         })}
       </div>
-      <p className="runtimeDispositionsNote">These are possible dispositions. Only the disposition returned by the current evaluation is illuminated.</p>
+      <p className="runtimeDispositionFootnote">Harmonic returns one runtime disposition for the evaluated present state. The remaining cards show possible outcomes, not simultaneous results.</p>
     </section>
   );
 }
@@ -1195,30 +1189,31 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
 
   const engineeringArtifact = JSON.stringify({
     evaluation: {
-      id: stableArtifactId(result, lane),
-      generatedAt: result.generatedAt,
       scenario: result.scenario,
       model: result.model,
-      runtimeLabel: result.runtimeLabel || null
+      generatedAt: result.generatedAt,
+      runtimeLabel: result.runtimeLabel || "Current V4"
     },
     lane: lane ? {
-      id: lane.lane,
+      lane: lane.lane,
       title: lane.title,
-      decision: lane.evaluation.decision,
-      available: lane.evaluation.available,
-      summary: lane.evaluation.summary,
-      flags: lane.evaluation.flags
+      response: lane.response,
+      evaluation: lane.evaluation
     } : null,
-    engineering: Object.fromEntries(rows.map((row) => [row.label, row.value])),
-    raw: lane?.evaluation.raw ?? null
+    engineeringRecord: Object.fromEntries(rows.map((row) => [row.label, row.value])),
+    rawRuntimePayload: lane?.evaluation.raw ?? null
   }, null, 2);
 
   return (
     <details className="engineeringView">
-      <summary>
-        <span>Engineering View</span>
-        <span onClick={(event) => event.stopPropagation()}><CopyButton text={engineeringArtifact} label="Copy data" /></span>
-      </summary>
+      <summary>Engineering View</summary>
+      <div className="engineeringToolbar">
+        <div>
+          <strong>Structured engineering artifact</strong>
+          <span>Evaluation metadata, lane result, engineering fields, and raw runtime payload.</span>
+        </div>
+        <CopyButton text={engineeringArtifact} label="Copy data" />
+      </div>
       <div className="engineeringGrid">
         {rows.map((row) => (
           <div key={row.label}>
@@ -1288,8 +1283,6 @@ function ExecutionConsole({ result }: { result: CompareResponse }) {
         <span>Required Action</span>
         <strong>{requiredAction}</strong>
       </section>
-
-      <RuntimeDispositions decision={decision} />
 
       <RecommendationDecisionSplit rawLane={rawLane} decisionLane={decisionLane} result={result} />
 
@@ -1837,6 +1830,8 @@ export default function Home() {
             </div>
             {result ? <em>{result.model}</em> : <em>Possible outcomes: ADMIT · DENY · ESCALATE · DEFER\nResults appear after run</em>}
           </div>
+
+          <RuntimeDispositionStrip decision={result ? (result.lanes.find((lane) => lane.lane === "harmonic_governance") ?? result.lanes.find((lane) => lane.lane === "harmonic"))?.evaluation.decision : undefined} />
 
           {loading ? (
             <GovernanceScan loading={loading} result={null} />
