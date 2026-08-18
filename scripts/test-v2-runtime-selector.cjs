@@ -19,7 +19,7 @@ must(adapter,'HARMONIC_V2_VERCEL_BYPASS_SECRET');
 must(adapter,'"x-vercel-protection-bypass": bypassSecret');
 must(adapter,'"x-vercel-set-bypass-cookie": "true"');
 
-must(route,'runtimeTarget: z.enum(["v3", "v2"]).default("v3")');
+must(route,'runtimeTarget: z.enum(["v4", "v2"]).default("v4")');
 must(route,'Frozen V2 · 6a3a89f');
 must(page,'Runtime under examination');
 must(page,'setRuntimeTarget');
