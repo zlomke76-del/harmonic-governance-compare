@@ -95,7 +95,7 @@ export type GovernanceDownstreamAccountability = {
   };
 };
 
-export type RuntimeTarget = "v3" | "v2";
+export type RuntimeTarget = "v4" | "v2";
 
 export type LaneName = "raw" | "harmonic" | "harmonic_governance";
 

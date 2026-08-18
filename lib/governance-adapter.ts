@@ -1441,7 +1441,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v3.6-universal-transaction-projection-2026-08-09"
+      "X-Harmonic-Harness-Build": "v4-single-call-console-2026-08-18"
     },
     body: JSON.stringify(outboundPayload)
   });
