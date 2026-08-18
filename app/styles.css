@@ -2528,3 +2528,76 @@ pre {
 .exactReplayPanel code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
+
+/* V76 — V4 console usability pass: progressive disclosure without changing the test boundary. */
+.primaryConfigGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.advancedPanel,
+.witnessPanel {
+  border: 1px solid rgba(141, 213, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(7, 12, 21, 0.48);
+  overflow: hidden;
+}
+.advancedPanel > summary,
+.witnessPanel > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 850;
+}
+.advancedPanel > summary::-webkit-details-marker,
+.witnessPanel > summary::-webkit-details-marker { display: none; }
+.advancedPanel > summary::after,
+.witnessPanel > summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 18px;
+}
+.advancedPanel[open] > summary::after,
+.witnessPanel[open] > summary::after { content: "−"; }
+.advancedPanel > summary small,
+.witnessPanel > summary small {
+  margin-left: auto;
+  max-width: 62%;
+  color: var(--soft);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: right;
+}
+.advancedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 16px 14px;
+}
+.advancedPanel .modelNote { margin: 0; padding: 0 16px 14px; }
+.witnessPanel > p,
+.witnessPanel > .witnessActions,
+.witnessPanel > label { margin-left: 16px; margin-right: 16px; }
+.witnessPanel > label { margin-bottom: 12px; }
+.witnessPanel > p:last-child { margin-bottom: 16px; }
+.witnessNote,
+.witnessBoundary {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.witnessActions { margin-bottom: 14px; }
+.witnessPanel textarea { min-height: 96px; max-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; }
+.exactReplayPanel { margin: 0; }
+@media (max-width: 760px) {
+  .primaryConfigGrid,
+  .advancedGrid { grid-template-columns: 1fr; }
+  .advancedPanel > summary,
+  .witnessPanel > summary { align-items: flex-start; }
+  .advancedPanel > summary small,
+  .witnessPanel > summary small { display: none; }
+}

@@ -67,7 +67,7 @@ const CUSTOM_SCENARIO_ID = "custom";
 const PATTERN_ALL = "All constitutional patterns";
 
 const RUNTIME_OPTIONS: Array<{ id: RuntimeTarget; label: string; note: string }> = [
-  { id: "v3", label: "Current V3", note: "Current production constitutional runtime" },
+  { id: "v4", label: "Current V4", note: "Current production constitutional runtime" },
   { id: "v2", label: "Frozen V2 · 6a3a89f", note: "TA-14 frozen implementation boundary" }
 ];
 
@@ -1380,7 +1380,7 @@ export default function Home() {
   const [scenario, setScenario] = useState(scenarios[0]?.id ?? "clinical-allergy-update");
   const [customScenarioName, setCustomScenarioName] = useState("Custom execution scenario");
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
-  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v3");
+  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v4");
   const [includeHarmonicOnly, setIncludeHarmonicOnly] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompareResponse | null>(null);
@@ -1422,7 +1422,7 @@ export default function Home() {
     const savedRuntime = window.localStorage.getItem("harmonic.compare.runtime");
     if (savedModel && MODEL_OPTIONS.some((item) => item.id === savedModel)) setSelectedModel(savedModel);
     if (savedScenario && scenarios.some((item) => item.id === savedScenario)) applyScenario(savedScenario);
-    if (savedRuntime === "v2" || savedRuntime === "v3") setRuntimeTarget(savedRuntime);
+    if (savedRuntime === "v2" || savedRuntime === "v4") setRuntimeTarget(savedRuntime);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1595,33 +1595,7 @@ export default function Home() {
             <h2>Execution scenario</h2>
           </div>
 
-          <div className="configGrid">
-            <label>
-              Runtime under examination
-              <select value={runtimeTarget} onChange={(e) => setRuntimeTarget(e.target.value as RuntimeTarget)}>
-                {RUNTIME_OPTIONS.map((runtime) => (
-                  <option key={runtime.id} value={runtime.id}>{runtime.label}</option>
-                ))}
-              </select>
-              <span className="fieldHint">
-                {RUNTIME_OPTIONS.find((runtime) => runtime.id === runtimeTarget)?.note}
-              </span>
-            </label>
-
-            <label>
-              LLM model
-              <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
-                {MODEL_OPTIONS.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.provider} · {model.label}
-                  </option>
-                ))}
-              </select>
-              <span className="fieldHint">
-                Harmonic is model-agnostic. Cross-provider models route through Vercel AI Gateway; OpenAI models can also run with OPENAI_API_KEY as a fallback.
-              </span>
-            </label>
-
+          <div className="configGrid primaryConfigGrid">
             <label>
               Constitutional Pattern
               <select value={selectedPattern} onChange={(e) => applyPattern(e.target.value)}>
@@ -1657,7 +1631,33 @@ export default function Home() {
             </div>
           ) : null}
 
-          <p className="modelNote">Harmonic governs execution independently of the underlying model.</p>
+          <details className="advancedPanel">
+            <summary>
+              <span>Advanced run settings</span>
+              <small>{RUNTIME_OPTIONS.find((runtime) => runtime.id === runtimeTarget)?.label} · {MODEL_OPTIONS.find((model) => model.id === selectedModel)?.label}</small>
+            </summary>
+            <div className="advancedGrid">
+              <label>
+                Runtime under examination
+                <select value={runtimeTarget} onChange={(e) => setRuntimeTarget(e.target.value as RuntimeTarget)}>
+                  {RUNTIME_OPTIONS.map((runtime) => (
+                    <option key={runtime.id} value={runtime.id}>{runtime.label}</option>
+                  ))}
+                </select>
+                <span className="fieldHint">{RUNTIME_OPTIONS.find((runtime) => runtime.id === runtimeTarget)?.note}</span>
+              </label>
+              <label>
+                LLM model
+                <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+                  {MODEL_OPTIONS.map((model) => (
+                    <option key={model.id} value={model.id}>{model.provider} · {model.label}</option>
+                  ))}
+                </select>
+                <span className="fieldHint">Model choice changes domain reasoning, not Harmonic execution authority.</span>
+              </label>
+            </div>
+            <p className="modelNote">Harmonic governs execution independently of the underlying model.</p>
+          </details>
 
           {scenario === CUSTOM_SCENARIO_ID ? (
             <label>
@@ -1699,8 +1699,8 @@ export default function Home() {
           ) : null}
 
           {scenario === CUSTOM_SCENARIO_ID && !exactPacketReplay ? (
-            <details className="witnessPanel" open>
-              <summary>Structured constitutional witnesses</summary>
+            <details className="witnessPanel">
+              <summary><span>Structured constitutional witnesses</span><small>Optional · use when the scenario depends on explicit authority, continuity, provenance, obligation, or accountability facts</small></summary>
               <p className="witnessNote">Custom narrative is not treated as authority evidence. Supply explicit structured witnesses here when the test depends on authority, continuity, or downstream accountability.</p>
               <div className="witnessActions">
                 <button type="button" className="secondaryButton" onClick={loadT0WitnessTemplate}>Load complete T0 payment baseline</button>
@@ -1773,7 +1773,7 @@ export default function Home() {
           ) : result ? (
             <>
               <div className="meta">
-                <span>Runtime: {result.runtimeLabel || "Current V3"}</span>
+                <span>Runtime: {result.runtimeLabel || "Current V4"}</span>
                 <span>Scenario: {result.scenario}</span>
                 <span>{new Date(result.generatedAt).toLocaleString()}</span>
               </div>
