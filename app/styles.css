@@ -2601,3 +2601,144 @@ pre {
   .advancedPanel > summary small,
   .witnessPanel > summary small { display: none; }
 }
+
+/* V77 — possible runtime dispositions + engineering data copy */
+.runtimeDispositions {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+  background: rgba(7, 12, 20, 0.62);
+}
+
+.runtimeDispositionsHeader {
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.runtimeDispositionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.runtimeDisposition {
+  position: relative;
+  min-height: 112px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(137, 166, 209, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.018);
+  opacity: 0.47;
+  filter: saturate(0.5);
+  transition: opacity 180ms ease, filter 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.runtimeDisposition strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.runtimeDisposition p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.runtimeDispositionGlyph {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  font-weight: 900;
+}
+
+.runtimeDisposition.active {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-1px);
+}
+
+.runtimeDisposition.continue { color: var(--green); }
+.runtimeDisposition.constrain { color: var(--gold); }
+.runtimeDisposition.escalate { color: #ffad42; }
+.runtimeDisposition.block { color: #ff655f; }
+
+.runtimeDisposition.continue.active {
+  border-color: rgba(100, 240, 161, 0.72);
+  background: linear-gradient(180deg, rgba(100, 240, 161, 0.12), rgba(100, 240, 161, 0.025));
+  box-shadow: 0 0 28px rgba(100, 240, 161, 0.13), inset 0 0 26px rgba(100, 240, 161, 0.04);
+}
+
+.runtimeDisposition.constrain.active {
+  border-color: rgba(245, 197, 66, 0.88);
+  background: linear-gradient(180deg, rgba(245, 197, 66, 0.14), rgba(245, 197, 66, 0.025));
+  box-shadow: 0 0 30px rgba(245, 197, 66, 0.18), inset 0 0 28px rgba(245, 197, 66, 0.05);
+}
+
+.runtimeDisposition.escalate.active {
+  border-color: rgba(255, 173, 66, 0.82);
+  background: linear-gradient(180deg, rgba(255, 173, 66, 0.13), rgba(255, 173, 66, 0.025));
+  box-shadow: 0 0 30px rgba(255, 173, 66, 0.16), inset 0 0 28px rgba(255, 173, 66, 0.05);
+}
+
+.runtimeDisposition.block.active {
+  border-color: rgba(255, 101, 95, 0.82);
+  background: linear-gradient(180deg, rgba(255, 101, 95, 0.13), rgba(255, 101, 95, 0.025));
+  box-shadow: 0 0 30px rgba(255, 101, 95, 0.16), inset 0 0 28px rgba(255, 101, 95, 0.05);
+}
+
+.runtimeDispositionState {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  padding: 3px 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.runtimeDispositionsNote {
+  margin: 12px 4px 0;
+  color: var(--soft);
+  font-size: 11px;
+  text-align: center;
+}
+
+.engineeringView > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.engineeringView > summary .copyButton {
+  margin-left: auto;
+}
+
+@media (max-width: 980px) {
+  .runtimeDispositionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .runtimeDispositionGrid {
+    grid-template-columns: 1fr;
+  }
+}
