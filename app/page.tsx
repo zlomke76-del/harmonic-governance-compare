@@ -1122,6 +1122,13 @@ function RuntimeDispositionStrip({ decision }: { decision?: GovernanceDecision }
   );
 }
 
+function governancePackSemver(rawVersion: unknown): string {
+  const exact = typeof rawVersion === "string" ? rawVersion.trim() : "";
+  if (!exact) return "Not returned";
+  const match = exact.match(/^([0-9]+\.[0-9]+\.[0-9]+)/);
+  return match?.[1] || exact;
+}
+
 function EngineeringView({ result, lane }: { result: CompareResponse; lane?: LaneResult }) {
   const raw = getRawRecord(lane?.evaluation.raw);
   const primitives = lane?.evaluation.primitiveResults ?? [];
@@ -1154,7 +1161,18 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     { label: "Execution Packet", value: stableArtifactId(result, lane) },
     { label: "API Contract", value: transaction.contract === "single_api_call" ? "Universal single call · /api/evaluate" : "Universal runtime response" },
     { label: "Runtime", value: lane?.evaluation.available ? "External Harmonic / Governance Pack" : "Local fallback / endpoint not configured" },
-    { label: "Governance Pack", value: String(raw.version || raw.governance_pack_version || raw.package_version || "constitutional-runtime-vNext") },
+    {
+      label: "Runtime Version",
+      value: `V${String(raw.runtime_version || transaction.transaction_model_version || "Not returned").replace(/^v/i, "")}`
+    },
+    {
+      label: "Governance Pack",
+      value: governancePackSemver(raw.version || raw.governance_pack_version || raw.package_version)
+    },
+    {
+      label: "Governance Pack Build",
+      value: String(raw.version || raw.governance_pack_version || raw.package_version || "Not returned")
+    },
     { label: "Execution Binding", value: lane ? `${lane.title} → ${decisionText(lane.evaluation.decision)}` : "Pending" },
     { label: "Primitive Hashes", value: primitiveHashes },
     { label: "Artifact Lineage", value: "T0 Recommendation Created → T1 Reality Changed → T2 Execution Requested → T3 Constitutional Runtime → T4 Execution Decision" },
