@@ -561,35 +561,56 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
   // object that the synthetic test asks it to evaluate. Explicit structured witnesses
   // supplied by the operator always take precedence over this translation.
   //
-  // The parser intentionally supports both prose fixtures ("At T₀ ...") and frozen
-  // protocol notation ("H = ...", "ΔN = ...", "A = ..."). It will not promote a
-  // partial chronology: historical validity, a later authority change, and a specific
-  // consequential action must all be present in the operator-authored prompt.
+  // Translation is intentionally conservative: we require all three legs of the
+  // synthetic examination object in the operator-authored prompt itself:
+  //   H   = a T0 historical authority state,
+  //   ΔN  = a later material authority change for the same authority id, and
+  //   A   = a specific consequential action.
+  // We accept either "AUTH-9173 is valid" or "valid authority AUTH-9173" phrasing,
+  // and likewise either "AUTH-9173 is revoked" or "revocation of AUTH-9173".
   const text = original
     .replace(/\u2010|\u2011|\u2012|\u2013|\u2014/g, "-")
     .replace(/Tₒ/g, "T₀");
 
-  const authorityIds = Array.from(text.matchAll(/\bAUTH-[A-Za-z0-9_-]+\b/gi)).map((match) => match[0]);
-  if (!authorityIds.length) return undefined;
+  const sliceFromAnchor = (anchor: RegExp, length = 520): string => {
+    const match = anchor.exec(text);
+    if (!match || match.index == null) return "";
+    return text.slice(match.index, match.index + length);
+  };
 
-  const historicalPattern = /(?:At\s+T[₀0]|T[₀0]\s*[:=]|Historical\s+Validity(?:\s+H)?\s*[:=]?|\bH\s*[:=])([\s\S]{0,320})/i;
-  const deltaPattern = /(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N\s*[:=]?|Material\s+Change(?:\s+Δ\s*N)?\s*[:=]?)([\s\S]{0,320})/i;
-  const historicalSegment = historicalPattern.exec(text)?.[0] || "";
-  const deltaSegment = deltaPattern.exec(text)?.[0] || "";
+  const historicalWindow = sliceFromAnchor(/(?:At\s+T[₀0]|T[₀0]\s*[:=]|Historical\s+Validity(?:\s+H)?\s*[:=]?|\bH\s*[:=])/i);
+  const deltaWindow = sliceFromAnchor(/(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N\s*[:=]?|Material\s+Change(?:\s+Δ\s*N)?\s*[:=]?)/i);
 
-  const historicalAuthority = historicalSegment.match(/\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,160}?\b(valid|active|authorized|authorised)\b/i);
-  const changedAuthority = deltaSegment.match(/\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,180}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
+  if (!historicalWindow || !deltaWindow) return undefined;
 
-  // Fallback for compact frozen fixtures where the anchor and status may be split
-  // across nearby clauses rather than a single sentence.
-  const t0Match = historicalAuthority || text.match(/(?:At\s+T[₀0]|T[₀0]\s*[:=])[\s\S]{0,260}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,160}?\b(valid|active|authorized|authorised)\b/i);
-  const deltaMatch = changedAuthority || text.match(/(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N)[\s\S]{0,260}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,180}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
+  const authorityIdIn = (window: string): string | undefined => window.match(/\b(AUTH-[A-Za-z0-9_-]+)\b/i)?.[1];
+  const hasHistoricalStatus = (window: string): boolean =>
+    /\b(valid|active|authorized|authorised)\b/i.test(window)
+    || /\b(validity|authorization|authorisation)\b[\s\S]{0,100}\b(established|exists|in force)\b/i.test(window);
+  const hasDeltaStatus = (window: string): string | undefined => {
+    const direct = window.match(/\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i)?.[1];
+    if (direct) return direct.toLowerCase();
+    const nominal = window.match(/\b(revocation|expiration|expiry|suspension|withdrawal|invalidation|extinguishment)\b/i)?.[1]?.toLowerCase();
+    if (!nominal) return undefined;
+    return ({
+      revocation: "revoked",
+      expiration: "expired",
+      expiry: "expired",
+      suspension: "suspended",
+      withdrawal: "withdrawn",
+      invalidation: "invalidated",
+      extinguishment: "extinguished"
+    } as Record<string, string>)[nominal];
+  };
 
-  if (!t0Match || !deltaMatch) return undefined;
+  const historicalAuthorityId = authorityIdIn(historicalWindow);
+  const deltaAuthorityId = authorityIdIn(deltaWindow);
+  const deltaStatus = hasDeltaStatus(deltaWindow);
 
-  const authorityId = t0Match[1];
-  const deltaAuthorityId = deltaMatch[1];
-  if (!authorityId || !deltaAuthorityId || authorityId.toLowerCase() !== deltaAuthorityId.toLowerCase()) return undefined;
+  if (!historicalAuthorityId || !deltaAuthorityId || !hasHistoricalStatus(historicalWindow) || !deltaStatus) return undefined;
+  if (historicalAuthorityId.toLowerCase() !== deltaAuthorityId.toLowerCase()) return undefined;
+
+  const authorityId = historicalAuthorityId;
 
   const actionIdMatch = text.match(/\b(PAY-[A-Za-z0-9_-]+)\b/i);
   const accountMatch = text.match(/\b(ACCT-[A-Za-z0-9_-]+)\b/i);
@@ -597,26 +618,24 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
   const actionLanguagePresent = /\b(execute|execution|release|transfer|pay|payment|disburse|authorize\s+payment|authorise\s+payment)\b/i.test(text)
     || /(?:\bA\s*[:=]|Consequential\s+Action\s+A)/i.test(text);
 
+  // Avoid inventing a consequence from a generic governance discussion. A synthetic
+  // fixture is translated only when the prompt identifies at least one concrete
+  // action object/value (PAY id, account id, or amount) in addition to action language.
   if (!actionLanguagePresent || (!actionIdMatch && !accountMatch && !amountMatch)) return undefined;
 
   const actionId = actionIdMatch?.[1] || "ACTION-A";
 
   const extractAnchorTime = (anchor: RegExp): string | undefined => {
-    const match = text.match(anchor);
-    if (!match) return undefined;
-    const window = text.slice(match.index ?? 0, (match.index ?? 0) + 180);
+    const match = anchor.exec(text);
+    if (!match || match.index == null) return undefined;
+    const window = text.slice(match.index, match.index + 220);
     return window.match(/\(([^)]+)\)/)?.[1]
       || window.match(/\b(20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\b/)?.[1];
   };
 
   const t0 = extractAnchorTime(/(?:At\s+T[₀0]|T[₀0]\s*[:=]|Historical\s+Validity(?:\s+H)?)/i) || "T0";
   const deltaTime = extractAnchorTime(/(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N|Material\s+Change)/i) || "DELTA_N";
-  const executionTime = extractAnchorTime(/(?:At\s+T(?:ₙ|n)?\b|\bT(?:ₙ|n)?\s*[:=]|execution\s+time)/i);
-
-  const deltaStatusMatch = deltaSegment.match(/\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i)
-    || text.match(/(?:At\s+Δ\s*N|Δ\s*N|Delta\s*N)[\s\S]{0,260}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
-  const deltaStatus = deltaStatusMatch?.[1]?.toLowerCase();
-  if (!deltaStatus) return undefined;
+  const executionTime = extractAnchorTime(/(?:At\s+T(?:ₙ|n)?\b|\bT(?:ₙ|n)?\s*[:=]|execution\s+time|execution\s+request)/i);
 
   const fixtureSource = `fixture://operator-authored/${encodeURIComponent(scenario || "custom-scenario")}`;
   const historicalRef = `${fixtureSource}#historical-authority`;
@@ -1009,7 +1028,7 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v81-synthetic-fixture-transport-correction-2026-08-25",
+    adapter_build: "v82-synthetic-fixture-anchor-fix-2026-08-25",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
@@ -1638,7 +1657,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v81-synthetic-fixture-transport-correction-2026-08-25"
+      "X-Harmonic-Harness-Build": "v82-synthetic-fixture-anchor-fix-2026-08-25"
     },
     body: JSON.stringify(outboundPayload)
   });
