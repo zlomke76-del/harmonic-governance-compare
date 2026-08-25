@@ -635,7 +635,14 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
 
   const t0 = extractAnchorTime(/(?:At\s+T[₀0]|T[₀0]\s*[:=]|Historical\s+Validity(?:\s+H)?)/i) || "T0";
   const deltaTime = extractAnchorTime(/(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N|Material\s+Change)/i) || "DELTA_N";
-  const executionTime = extractAnchorTime(/(?:At\s+T(?:ₙ|n)?\b|\bT(?:ₙ|n)?\s*[:=]|execution\s+time|execution\s+request)/i);
+  // Execution time must never alias T₀ or ΔN. Prefer an explicit Tₙ/Tn anchor,
+  // then a plain `At T (...)` execution anchor, and only then an execution-request
+  // phrase. The previous optional-suffix pattern could match the `T` prefix inside
+  // `T₀`, which contaminated the fixture chronology.
+  const executionTime =
+    extractAnchorTime(/(?:At\s+T(?:ₙ|n)\s*|\bT(?:ₙ|n)\s*[:=])/i)
+    || extractAnchorTime(/At\s+T(?![₀0ₙn])\s*(?=\(|[:=])/i)
+    || extractAnchorTime(/(?:execution\s+time|execution\s+request(?:ed)?|request\s+to\s+execute)/i);
 
   const fixtureSource = `fixture://operator-authored/${encodeURIComponent(scenario || "custom-scenario")}`;
   const historicalRef = `${fixtureSource}#historical-authority`;
@@ -709,7 +716,11 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
 
   const stateProvenance: GovernanceStateProvenanceWitness = {
     attributable_source: fixtureSource,
-    epistemic_status: "STIPULATED_SYNTHETIC_FIXTURE",
+    // Within a synthetic examination object, the operator-authored fixture is the
+    // attributable source that establishes the stipulated state for the test. This
+    // is not a claim of external-world truth; that boundary remains explicit in the
+    // fixture URI and derivation method.
+    epistemic_status: "ESTABLISHED",
     source_evidence_refs: [historicalRef, changeRef, actionRef, stateRef],
     derivation_ref: fixtureSource,
     derivation_method: "bounded_operator_prompt_fixture_translation"
@@ -1028,7 +1039,7 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v82-synthetic-fixture-anchor-fix-2026-08-25",
+    adapter_build: "v83-fixture-chronology-provenance-projection-2026-08-25",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
@@ -1657,7 +1668,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v82-synthetic-fixture-anchor-fix-2026-08-25"
+      "X-Harmonic-Harness-Build": "v83-fixture-chronology-provenance-projection-2026-08-25"
     },
     body: JSON.stringify(outboundPayload)
   });
