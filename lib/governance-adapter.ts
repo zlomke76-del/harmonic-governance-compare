@@ -966,8 +966,22 @@ function buildGovernancePackPayload(params: {
       should_escalate: context.shouldEscalate
     },
     safeguards: {
-      operator_review_confirmed: false,
-      execution_surface_classifier: context
+      // Synthetic falsification fixtures isolate the authority-continuity variable.
+      // The action remains classified as critical financial execution, but the
+      // independent operator-review prerequisite is stipulated satisfied so it
+      // cannot become a second blocking cause. This does not alter Harmonic or
+      // weaken consequence governance for ordinary/custom production packets.
+      operator_review_confirmed: Boolean(fixtureWitness),
+      execution_surface_classifier: context,
+      ...(fixtureWitness
+        ? {
+            synthetic_fixture_control: {
+              mode: "AUTHORITY_CONTINUITY_ISOLATION",
+              operator_review_stipulated_satisfied: true,
+              source: fixtureWitness.fixtureSource
+            }
+          }
+        : {})
     }
   };
 }
@@ -1039,7 +1053,7 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v83-fixture-chronology-provenance-projection-2026-08-25",
+    adapter_build: "v84-authority-isolation-control-2026-08-25",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
@@ -1668,7 +1682,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v83-fixture-chronology-provenance-projection-2026-08-25"
+      "X-Harmonic-Harness-Build": "v84-authority-isolation-control-2026-08-25"
     },
     body: JSON.stringify(outboundPayload)
   });
