@@ -542,6 +542,126 @@ function buildHarmonicOnlyPayload(params: { prompt: string; response: string; sc
 }
 
 
+
+type SyntheticFixtureWitness = {
+  requestedAction?: GovernanceRequestedAction;
+  authorityProvenance?: GovernanceAuthorityProvenance;
+  stateProvenance?: GovernanceStateProvenanceWitness;
+  fixtureSource: string;
+  translatedFields: string[];
+};
+
+function deriveSyntheticFixtureWitness(prompt: string, scenario: string): SyntheticFixtureWitness | undefined {
+  const original = String(prompt || "").trim();
+  if (!original) return undefined;
+
+  // Bounded synthetic-fixture translation only. This does not infer external truth.
+  // It preserves facts explicitly stipulated by the operator-authored test prompt
+  // as examiner-supplied fixture state so the runtime receives the same H / ΔN / A
+  // object that the synthetic test asks it to evaluate. Explicit structured witnesses
+  // supplied by the operator always take precedence over this translation.
+  const t0Match = original.match(/(?:At\s+T[₀0]|T[₀0]\s*[:=])\s*(?:\(([^)]+)\))?[\s\S]{0,180}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,80}?\b(valid|active|authorized|authorised)\b/i);
+  const deltaMatch = original.match(/(?:At\s+ΔN|ΔN\s*[:=])\s*(?:\(([^)]+)\))?[\s\S]{0,180}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,100}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
+  const actionMatch = original.match(/(?:request\s+to\s+execute|execute|release)[\s\S]{0,120}?\b(PAY-[A-Za-z0-9_-]+)\b/i);
+  const accountMatch = original.match(/\b(ACCT-[A-Za-z0-9_-]+)\b/i);
+  const amountMatch = original.match(/\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
+  const tMatch = original.match(/(?:At\s+T(?![₀0])|\bT\s*[:=])\s*(?:\(([^)]+)\))?/i);
+
+  // Do not manufacture a partial chronology. Promotion occurs only when the
+  // prompt explicitly stipulates historical authority, a later authority change,
+  // and a specific requested action.
+  if (!t0Match || !deltaMatch || !actionMatch) return undefined;
+
+  const authorityId = t0Match[2];
+  if (deltaMatch[2] !== authorityId) return undefined;
+
+  const fixtureSource = `fixture://operator-authored/${encodeURIComponent(scenario || "custom-scenario")}`;
+  const historicalRef = `${fixtureSource}#historical-authority`;
+  const changeRef = `${fixtureSource}#material-change`;
+  const actionRef = `${fixtureSource}#requested-action`;
+  const stateRef = `${fixtureSource}#present-state`;
+
+  const t0 = t0Match[1] || "T0";
+  const deltaTime = deltaMatch[1] || "DELTA_N";
+  const actionId = actionMatch[1];
+  const scope = [actionId, authorityId];
+  if (accountMatch?.[1]) scope.push(accountMatch[1]);
+  if (amountMatch?.[1]) scope.push(`${amountMatch[1].replace(/,/g, "")}_USD`);
+
+  const requestedAction: GovernanceRequestedAction = {
+    type: accountMatch || amountMatch ? "financial_execution" : "consequential_execution",
+    scope
+  };
+
+  const fixtureActor = {
+    id: "examiner-supplied-fixture",
+    name: "Operator-authored synthetic test fixture",
+    role: "Test fixture source",
+    institution: "Synthetic examination object"
+  };
+
+  const authorityProvenance: GovernanceAuthorityProvenance = {
+    authority_history: [
+      {
+        event_id: `${authorityId}-T0`,
+        event_type: "authority_stipulated_valid",
+        effective_at: t0,
+        actor: fixtureActor,
+        source_ref: historicalRef,
+        evidence_refs: [historicalRef]
+      },
+      {
+        event_id: `${authorityId}-DELTA-N`,
+        event_type: `authority_${deltaMatch[3].toLowerCase()}`,
+        effective_at: deltaTime,
+        actor: fixtureActor,
+        source_ref: changeRef,
+        evidence_refs: [changeRef]
+      }
+    ],
+    original_authority: {
+      actor: fixtureActor,
+      authority_source_type: "synthetic_test_fixture",
+      authority_source_ref: historicalRef,
+      delegation_ref: historicalRef,
+      scope,
+      effective_at: t0,
+      evidence_refs: [historicalRef]
+    },
+    authority_change: {
+      change_type: deltaMatch[3].toLowerCase(),
+      changed_at: deltaTime,
+      changed_by: fixtureActor,
+      change_source_ref: changeRef,
+      reason: `Operator-authored synthetic fixture stipulates ${authorityId} became ${deltaMatch[3].toLowerCase()} before ${actionId}.`,
+      evidence_refs: [changeRef]
+    },
+    current_authority: {
+      status: deltaMatch[3].toLowerCase(),
+      actor: fixtureActor,
+      authority_source_ref: changeRef,
+      scope,
+      evidence_refs: [changeRef]
+    }
+  };
+
+  const stateProvenance: GovernanceStateProvenanceWitness = {
+    attributable_source: fixtureSource,
+    epistemic_status: "STIPULATED_SYNTHETIC_FIXTURE",
+    source_evidence_refs: [historicalRef, changeRef, actionRef, stateRef],
+    derivation_ref: fixtureSource,
+    derivation_method: "bounded_operator_prompt_fixture_translation"
+  };
+
+  return {
+    requestedAction,
+    authorityProvenance,
+    stateProvenance,
+    fixtureSource,
+    translatedFields: ["historical_authority", "material_authority_change", "requested_action", ...(tMatch?.[1] ? ["execution_time"] : [])]
+  };
+}
+
 function deriveContinuityHints(prompt: string) {
   const text = prompt.toLowerCase();
 
@@ -683,9 +803,13 @@ function buildGovernancePackPayload(params: {
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
   const now = new Date().toISOString();
+  const fixtureWitness = deriveSyntheticFixtureWitness(params.prompt, params.scenario);
+  const effectiveRequestedAction = params.requestedAction || fixtureWitness?.requestedAction;
+  const effectiveAuthorityProvenance = params.authorityProvenance || fixtureWitness?.authorityProvenance;
+  const effectiveStateProvenance = params.stateProvenance || fixtureWitness?.stateProvenance;
   const context = classifyExecutionContext(params);
-  const consequenceLevel = context.consequenceLevel;
-  const actionType = params.requestedAction?.type || context.surface;
+  const consequenceLevel = effectiveRequestedAction?.type === "financial_execution" ? "critical" : context.consequenceLevel;
+  const actionType = effectiveRequestedAction?.type || context.surface;
   const obligationHint = params.obligationWitness || deriveObligationHints(params.prompt);
   const scenarioPrompt = obligationHint
     ? `${params.prompt}\n\n[HARMONIC HARNESS OBLIGATION WITNESS]\n${obligationHint.canonical_text}`
@@ -700,14 +824,17 @@ function buildGovernancePackPayload(params: {
     prompt: params.prompt,
     scenario_prompt: scenarioPrompt,
     ...(obligationHint ? { obligation_witness: obligationHint } : {}),
-    ...(params.stateProvenance ? { present_state_provenance: params.stateProvenance } : {}),
+    ...(effectiveStateProvenance ? { present_state_provenance: effectiveStateProvenance } : {}),
     scenario_label: params.scenario,
     harness_witness_meta: {
       requested_action_explicit: Boolean(params.requestedAction),
       authority_provenance_explicit: Boolean(params.authorityProvenance),
       obligation_witness_explicit: Boolean(params.obligationWitness),
       downstream_accountability_explicit: Boolean(params.downstreamAccountability),
-      state_provenance_explicit: Boolean(params.stateProvenance)
+      state_provenance_explicit: Boolean(params.stateProvenance),
+      synthetic_fixture_translated: Boolean(fixtureWitness),
+      synthetic_fixture_source: fixtureWitness?.fixtureSource || null,
+      synthetic_fixture_fields: fixtureWitness?.translatedFields || []
     },
 
     continuity: params.governanceFacts
@@ -721,7 +848,7 @@ function buildGovernancePackPayload(params: {
         }
       : deriveContinuityHints(params.prompt),
 
-    requested_action: params.requestedAction || {
+    requested_action: effectiveRequestedAction || {
       type: actionType,
       scope: [params.scenario]
     },
@@ -739,24 +866,24 @@ function buildGovernancePackPayload(params: {
     authority_chain: {
       subject: "llm-agent-1",
       issuer: "harmonic-governance-compare",
-      scope: params.requestedAction?.scope || [params.scenario],
+      scope: effectiveRequestedAction?.scope || [params.scenario],
       last_verified_at: now,
       chain: [
         { actor: "llm-agent-1", status: "active" },
         { actor: "harmonic-governance-compare", status: "active" }
       ]
     },
-    ...(params.authorityProvenance ? { authority_provenance: params.authorityProvenance } : {}),
+    ...(effectiveAuthorityProvenance ? { authority_provenance: effectiveAuthorityProvenance } : {}),
     ...(params.downstreamAccountability ? { downstream_accountability: params.downstreamAccountability } : {}),
     revocation_state: {
       last_revocation_check_at: now
     },
     consequence_profile: {
       level: consequenceLevel,
-      reversibility: context.reversibility,
+      reversibility: effectiveRequestedAction?.type === "financial_execution" ? "difficult_to_reverse" : context.reversibility,
       execution_surface: actionType,
       execution_surface_reason: context.reason,
-      requires_operator_review: context.requiresOperatorReview,
+      requires_operator_review: effectiveRequestedAction?.type === "financial_execution" ? true : context.requiresOperatorReview,
       should_block_execution: context.shouldBlockExecution,
       should_escalate: context.shouldEscalate
     },
@@ -834,7 +961,7 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v74-explicit-constitutional-witness-2026-08-10",
+    adapter_build: "v76-synthetic-fixture-transport-2026-08-25",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
