@@ -560,20 +560,63 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
   // as examiner-supplied fixture state so the runtime receives the same H / ΔN / A
   // object that the synthetic test asks it to evaluate. Explicit structured witnesses
   // supplied by the operator always take precedence over this translation.
-  const t0Match = original.match(/(?:At\s+T[₀0]|T[₀0]\s*[:=])\s*(?:\(([^)]+)\))?[\s\S]{0,180}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,80}?\b(valid|active|authorized|authorised)\b/i);
-  const deltaMatch = original.match(/(?:At\s+ΔN|ΔN\s*[:=])\s*(?:\(([^)]+)\))?[\s\S]{0,180}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,100}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
-  const actionMatch = original.match(/(?:request\s+to\s+execute|execute|release)[\s\S]{0,120}?\b(PAY-[A-Za-z0-9_-]+)\b/i);
-  const accountMatch = original.match(/\b(ACCT-[A-Za-z0-9_-]+)\b/i);
-  const amountMatch = original.match(/\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
-  const tMatch = original.match(/(?:At\s+T(?![₀0])|\bT\s*[:=])\s*(?:\(([^)]+)\))?/i);
+  //
+  // The parser intentionally supports both prose fixtures ("At T₀ ...") and frozen
+  // protocol notation ("H = ...", "ΔN = ...", "A = ..."). It will not promote a
+  // partial chronology: historical validity, a later authority change, and a specific
+  // consequential action must all be present in the operator-authored prompt.
+  const text = original
+    .replace(/\u2010|\u2011|\u2012|\u2013|\u2014/g, "-")
+    .replace(/Tₒ/g, "T₀");
 
-  // Do not manufacture a partial chronology. Promotion occurs only when the
-  // prompt explicitly stipulates historical authority, a later authority change,
-  // and a specific requested action.
-  if (!t0Match || !deltaMatch || !actionMatch) return undefined;
+  const authorityIds = Array.from(text.matchAll(/\bAUTH-[A-Za-z0-9_-]+\b/gi)).map((match) => match[0]);
+  if (!authorityIds.length) return undefined;
 
-  const authorityId = t0Match[2];
-  if (deltaMatch[2] !== authorityId) return undefined;
+  const historicalPattern = /(?:At\s+T[₀0]|T[₀0]\s*[:=]|Historical\s+Validity(?:\s+H)?\s*[:=]?|\bH\s*[:=])([\s\S]{0,320})/i;
+  const deltaPattern = /(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N\s*[:=]?|Material\s+Change(?:\s+Δ\s*N)?\s*[:=]?)([\s\S]{0,320})/i;
+  const historicalSegment = historicalPattern.exec(text)?.[0] || "";
+  const deltaSegment = deltaPattern.exec(text)?.[0] || "";
+
+  const historicalAuthority = historicalSegment.match(/\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,160}?\b(valid|active|authorized|authorised)\b/i);
+  const changedAuthority = deltaSegment.match(/\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,180}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
+
+  // Fallback for compact frozen fixtures where the anchor and status may be split
+  // across nearby clauses rather than a single sentence.
+  const t0Match = historicalAuthority || text.match(/(?:At\s+T[₀0]|T[₀0]\s*[:=])[\s\S]{0,260}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,160}?\b(valid|active|authorized|authorised)\b/i);
+  const deltaMatch = changedAuthority || text.match(/(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N)[\s\S]{0,260}?\b(AUTH-[A-Za-z0-9_-]+)\b[\s\S]{0,180}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
+
+  if (!t0Match || !deltaMatch) return undefined;
+
+  const authorityId = t0Match[1];
+  const deltaAuthorityId = deltaMatch[1];
+  if (!authorityId || !deltaAuthorityId || authorityId.toLowerCase() !== deltaAuthorityId.toLowerCase()) return undefined;
+
+  const actionIdMatch = text.match(/\b(PAY-[A-Za-z0-9_-]+)\b/i);
+  const accountMatch = text.match(/\b(ACCT-[A-Za-z0-9_-]+)\b/i);
+  const amountMatch = text.match(/\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
+  const actionLanguagePresent = /\b(execute|execution|release|transfer|pay|payment|disburse|authorize\s+payment|authorise\s+payment)\b/i.test(text)
+    || /(?:\bA\s*[:=]|Consequential\s+Action\s+A)/i.test(text);
+
+  if (!actionLanguagePresent || (!actionIdMatch && !accountMatch && !amountMatch)) return undefined;
+
+  const actionId = actionIdMatch?.[1] || "ACTION-A";
+
+  const extractAnchorTime = (anchor: RegExp): string | undefined => {
+    const match = text.match(anchor);
+    if (!match) return undefined;
+    const window = text.slice(match.index ?? 0, (match.index ?? 0) + 180);
+    return window.match(/\(([^)]+)\)/)?.[1]
+      || window.match(/\b(20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\b/)?.[1];
+  };
+
+  const t0 = extractAnchorTime(/(?:At\s+T[₀0]|T[₀0]\s*[:=]|Historical\s+Validity(?:\s+H)?)/i) || "T0";
+  const deltaTime = extractAnchorTime(/(?:At\s+Δ\s*N|Δ\s*N\s*[:=]|Delta\s*N|Material\s+Change)/i) || "DELTA_N";
+  const executionTime = extractAnchorTime(/(?:At\s+T(?:ₙ|n)?\b|\bT(?:ₙ|n)?\s*[:=]|execution\s+time)/i);
+
+  const deltaStatusMatch = deltaSegment.match(/\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i)
+    || text.match(/(?:At\s+Δ\s*N|Δ\s*N|Delta\s*N)[\s\S]{0,260}?\b(revoked|expired|suspended|withdrawn|invalidated|extinguished)\b/i);
+  const deltaStatus = deltaStatusMatch?.[1]?.toLowerCase();
+  if (!deltaStatus) return undefined;
 
   const fixtureSource = `fixture://operator-authored/${encodeURIComponent(scenario || "custom-scenario")}`;
   const historicalRef = `${fixtureSource}#historical-authority`;
@@ -581,15 +624,15 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
   const actionRef = `${fixtureSource}#requested-action`;
   const stateRef = `${fixtureSource}#present-state`;
 
-  const t0 = t0Match[1] || "T0";
-  const deltaTime = deltaMatch[1] || "DELTA_N";
-  const actionId = actionMatch[1];
   const scope = [actionId, authorityId];
   if (accountMatch?.[1]) scope.push(accountMatch[1]);
   if (amountMatch?.[1]) scope.push(`${amountMatch[1].replace(/,/g, "")}_USD`);
+  if (executionTime) scope.push(`EXECUTION_AT_${executionTime}`);
 
   const requestedAction: GovernanceRequestedAction = {
-    type: accountMatch || amountMatch ? "financial_execution" : "consequential_execution",
+    type: accountMatch || amountMatch || /\b(payment|release|transfer|disburse)\b/i.test(text)
+      ? "financial_execution"
+      : "consequential_execution",
     scope
   };
 
@@ -612,7 +655,7 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
       },
       {
         event_id: `${authorityId}-DELTA-N`,
-        event_type: `authority_${deltaMatch[3].toLowerCase()}`,
+        event_type: `authority_${deltaStatus}`,
         effective_at: deltaTime,
         actor: fixtureActor,
         source_ref: changeRef,
@@ -629,15 +672,15 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
       evidence_refs: [historicalRef]
     },
     authority_change: {
-      change_type: deltaMatch[3].toLowerCase(),
+      change_type: deltaStatus,
       changed_at: deltaTime,
       changed_by: fixtureActor,
       change_source_ref: changeRef,
-      reason: `Operator-authored synthetic fixture stipulates ${authorityId} became ${deltaMatch[3].toLowerCase()} before ${actionId}.`,
+      reason: `Operator-authored synthetic fixture stipulates ${authorityId} became ${deltaStatus} before ${actionId}.`,
       evidence_refs: [changeRef]
     },
     current_authority: {
-      status: deltaMatch[3].toLowerCase(),
+      status: deltaStatus,
       actor: fixtureActor,
       authority_source_ref: changeRef,
       scope,
@@ -658,7 +701,12 @@ function deriveSyntheticFixtureWitness(prompt: string, scenario: string): Synthe
     authorityProvenance,
     stateProvenance,
     fixtureSource,
-    translatedFields: ["historical_authority", "material_authority_change", "requested_action", ...(tMatch?.[1] ? ["execution_time"] : [])]
+    translatedFields: [
+      "historical_authority",
+      "material_authority_change",
+      "requested_action",
+      ...(executionTime ? ["execution_time"] : [])
+    ]
   };
 }
 
@@ -961,18 +1009,35 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v76-synthetic-fixture-transport-2026-08-25",
+    adapter_build: "v81-synthetic-fixture-transport-correction-2026-08-25",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
+    synthetic_fixture: {
+      translated: witnessMeta.synthetic_fixture_translated === true,
+      source: typeof witnessMeta.synthetic_fixture_source === "string" ? witnessMeta.synthetic_fixture_source : null,
+      fields: Array.isArray(witnessMeta.synthetic_fixture_fields) ? witnessMeta.synthetic_fixture_fields : []
+    },
     requested_action: {
-      supplied: witnessMeta.requested_action_explicit === true,
+      supplied: Boolean(requestedAction),
+      source: witnessMeta.requested_action_explicit === true
+        ? "explicit_structured_witness"
+        : witnessMeta.synthetic_fixture_translated === true
+          ? "synthetic_fixture_translation"
+          : Boolean(requestedAction)
+            ? "derived_runtime_context"
+            : "not_supplied",
       type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
       scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
     },
     authority_provenance: {
-      supplied: witnessMeta.authority_provenance_explicit === true,
+      supplied: Boolean(authorityProvenance),
+      source: witnessMeta.authority_provenance_explicit === true
+        ? "explicit_structured_witness"
+        : witnessMeta.synthetic_fixture_translated === true
+          ? "synthetic_fixture_translation"
+          : "not_supplied",
       authority_history_event_count: Array.isArray(authorityProvenance?.authority_history) ? authorityProvenance.authority_history.length : 0,
       original_authority_supplied: Boolean(asRecord(authorityProvenance?.original_authority)),
       authority_change_supplied: Boolean(asRecord(authorityProvenance?.authority_change)),
@@ -986,7 +1051,12 @@ function buildGovernanceRequestWitness(payload: unknown) {
       source: typeof obligationWitness?.source === "string" ? obligationWitness.source : null
     },
     state_provenance: {
-      supplied: witnessMeta.state_provenance_explicit === true,
+      supplied: Boolean(stateProvenance),
+      source: witnessMeta.state_provenance_explicit === true
+        ? "explicit_structured_witness"
+        : witnessMeta.synthetic_fixture_translated === true
+          ? "synthetic_fixture_translation"
+          : "not_supplied",
       attributable_source: typeof stateProvenance?.attributable_source === "string" ? stateProvenance.attributable_source : null,
       epistemic_status: typeof stateProvenance?.epistemic_status === "string" ? stateProvenance.epistemic_status : null,
       evidence_ref_count: Array.isArray(stateProvenance?.source_evidence_refs) ? stateProvenance.source_evidence_refs.length : 0
@@ -1568,7 +1638,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v4-single-call-console-2026-08-18"
+      "X-Harmonic-Harness-Build": "v81-synthetic-fixture-transport-correction-2026-08-25"
     },
     body: JSON.stringify(outboundPayload)
   });
@@ -1622,13 +1692,20 @@ export function projectExactPacketReplay(params: {
     prompt_present: typeof params.packet.prompt === "string" && params.packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof params.packet.scenario_prompt === "string" && params.packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof params.packet.scenario_label === "string" ? params.packet.scenario_label : null,
+    synthetic_fixture: {
+      translated: false,
+      source: null,
+      fields: []
+    },
     requested_action: {
       supplied: Boolean(requestedAction),
+      source: Boolean(requestedAction) ? "exact_packet_replay" : "not_supplied",
       type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
       scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
     },
     authority_provenance: {
       supplied: Boolean(authorityProvenance),
+      source: Boolean(authorityProvenance) ? "exact_packet_replay" : "not_supplied",
       authority_history_event_count: Array.isArray(authorityProvenance?.authority_history) ? authorityProvenance.authority_history.length : 0,
       original_authority_supplied: Boolean(asRecord(authorityProvenance?.original_authority)),
       authority_change_supplied: Boolean(asRecord(authorityProvenance?.authority_change)),
@@ -1643,6 +1720,7 @@ export function projectExactPacketReplay(params: {
     },
     state_provenance: {
       supplied: Boolean(stateProvenance),
+      source: Boolean(stateProvenance) ? "exact_packet_replay" : "not_supplied",
       attributable_source: typeof stateProvenance?.attributable_source === "string" ? stateProvenance.attributable_source : null,
       epistemic_status: typeof stateProvenance?.epistemic_status === "string" ? stateProvenance.epistemic_status : null,
       evidence_ref_count: Array.isArray(stateProvenance?.source_evidence_refs)
