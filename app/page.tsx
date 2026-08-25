@@ -1177,8 +1177,31 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     { label: "Primitive Hashes", value: primitiveHashes },
     { label: "Artifact Lineage", value: "T0 Recommendation Created → T1 Reality Changed → T2 Execution Requested → T3 Constitutional Runtime → T4 Execution Decision" },
     { label: "Present State", value: String(presentState.state_hash || presentStateBinding.state_hash || "Not returned") },
-    { label: "State Provenance", value: presentState.provenance ? "Attributable provenance returned" : "Not provided" },
-    { label: "Epistemic Status", value: String(presentState.epistemic_status || "NOT_PROVIDED") },
+    {
+      label: "State Provenance",
+      value: (() => {
+        const stateWitness = getRawRecord(requestWitness.state_provenance);
+        const fixture = getRawRecord(requestWitness.synthetic_fixture);
+        if (fixture.translated === true && stateWitness.supplied === true) {
+          const refs = Number(stateWitness.evidence_ref_count || 0);
+          return `Synthetic fixture · ${String(stateWitness.attributable_source || "operator-authored fixture")} · ${refs} evidence refs`;
+        }
+        return presentState.provenance || presentState.attributable_source
+          ? "Attributable provenance returned"
+          : "Not provided";
+      })()
+    },
+    {
+      label: "Epistemic Status",
+      value: (() => {
+        const stateWitness = getRawRecord(requestWitness.state_provenance);
+        const fixture = getRawRecord(requestWitness.synthetic_fixture);
+        if (fixture.translated === true && stateWitness.supplied === true) {
+          return `STIPULATED_SYNTHETIC_FIXTURE · runtime=${String(presentState.epistemic_status || "NOT_PROVIDED")}`;
+        }
+        return String(presentState.epistemic_status || "NOT_PROVIDED");
+      })()
+    },
     { label: "Determination", value: `${String(determination.outcome || lane?.evaluation.decision || "UNKNOWN")} · admissible=${String(determination.admissible ?? "unknown")} · action=${String(determination.action || "none")}` },
     { label: "Determination Identity", value: `${String(determination.determination_id || "not returned")} · ${shortHash(typeof determination.determination_hash === "string" ? determination.determination_hash : undefined)}` },
     { label: "Dependencies", value: dependencies.dependency_root ? `${Object.keys(dependencyManifest).length} manifest fields · root ${shortHash(String(dependencies.dependency_root))}` : "Dependency root not returned" },
