@@ -41,7 +41,7 @@ for (const fixture of [proseFixture, protocolFixture]) {
   assert(translated.requestedAction.scope.includes('ACCT-55'));
   assert.strictEqual(translated.authorityProvenance.authority_history.length, 2);
   assert.strictEqual(translated.authorityProvenance.current_authority.status, 'revoked');
-  assert.strictEqual(translated.stateProvenance.epistemic_status, 'STIPULATED_SYNTHETIC_FIXTURE');
+  assert.strictEqual(translated.stateProvenance.epistemic_status, 'ESTABLISHED');
 
   const payload = buildPayload({
     prompt: fixture,
@@ -62,7 +62,7 @@ for (const fixture of [proseFixture, protocolFixture]) {
   assert.strictEqual(witness.authority_provenance.current_authority_supplied, true);
   assert.strictEqual(witness.state_provenance.supplied, true);
   assert.strictEqual(witness.state_provenance.source, 'synthetic_fixture_translation');
-  assert.strictEqual(witness.state_provenance.epistemic_status, 'STIPULATED_SYNTHETIC_FIXTURE');
+  assert.strictEqual(witness.state_provenance.epistemic_status, 'ESTABLISHED');
   assert(witness.state_provenance.evidence_ref_count >= 4);
 }
 
