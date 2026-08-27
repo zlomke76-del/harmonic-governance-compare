@@ -17,7 +17,8 @@
     "test:v72-obligation-witness": "node scripts/test-v72-obligation-witness.cjs",
     "test:v75-exact-packet-replay": "node scripts/test-v75-exact-packet-replay.cjs",
     "test:v76-synthetic-fixture-transport": "node scripts/test-v76-synthetic-fixture-transport.cjs",
-    "test:v81-synthetic-fixture-transport": "node scripts/test-v81-synthetic-fixture-transport.cjs"
+    "test:v81-synthetic-fixture-transport": "node scripts/test-v81-synthetic-fixture-transport.cjs",
+    "test:v86-methodology-hardening": "node scripts/test-v86-methodology-hardening.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
