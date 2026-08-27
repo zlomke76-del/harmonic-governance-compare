@@ -904,12 +904,6 @@ function buildGovernancePackPayload(params: {
     ...(obligationHint ? { obligation_witness: obligationHint } : {}),
     ...(effectiveStateProvenance ? { present_state_provenance: effectiveStateProvenance } : {}),
     scenario_label: params.scenario,
-
-    // The model output is a proposed response to govern, not evidence about reality.
-    // Keeping it at the response-binding surface prevents provider wording from
-    // mutating Reality Contact or any other evidence-bound primitive.
-    response: params.response,
-
     harness_witness_meta: {
       requested_action_explicit: Boolean(params.requestedAction),
       authority_provenance_explicit: Boolean(params.authorityProvenance),
@@ -918,9 +912,7 @@ function buildGovernancePackPayload(params: {
       state_provenance_explicit: Boolean(params.stateProvenance),
       synthetic_fixture_translated: Boolean(fixtureWitness),
       synthetic_fixture_source: fixtureWitness?.fixtureSource || null,
-      synthetic_fixture_fields: fixtureWitness?.translatedFields || [],
-      model_response_role: "proposed_response_only",
-      model_response_used_as_observed_reality: false
+      synthetic_fixture_fields: fixtureWitness?.translatedFields || []
     },
 
     continuity: params.governanceFacts
@@ -941,6 +933,13 @@ function buildGovernancePackPayload(params: {
     declared_reality: {
       current_state_claims: [params.prompt],
       last_verified_at: now
+    },
+    observed_reality: {
+      signals: [
+        {
+          statement: params.response
+        }
+      ]
     },
     authority_chain: {
       subject: "llm-agent-1",
@@ -1054,16 +1053,11 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v85-model-response-evidence-isolation-2026-08-26",
+    adapter_build: "v84-authority-isolation-control-2026-08-25",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
-    model_response_binding: {
-      role: typeof witnessMeta.model_response_role === "string" ? witnessMeta.model_response_role : null,
-      used_as_observed_reality: witnessMeta.model_response_used_as_observed_reality === true,
-      response_supplied: typeof packet.response === "string"
-    },
     synthetic_fixture: {
       translated: witnessMeta.synthetic_fixture_translated === true,
       source: typeof witnessMeta.synthetic_fixture_source === "string" ? witnessMeta.synthetic_fixture_source : null,
@@ -1688,7 +1682,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v85-model-response-evidence-isolation-2026-08-26"
+      "X-Harmonic-Harness-Build": "v84-authority-isolation-control-2026-08-25"
     },
     body: JSON.stringify(outboundPayload)
   });
@@ -1742,6 +1736,11 @@ export function projectExactPacketReplay(params: {
     prompt_present: typeof params.packet.prompt === "string" && params.packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof params.packet.scenario_prompt === "string" && params.packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof params.packet.scenario_label === "string" ? params.packet.scenario_label : null,
+    model_response_binding: {
+      role: "exact_packet_replay",
+      used_as_observed_reality: false,
+      response_supplied: typeof params.packet.response === "string" && params.packet.response.trim().length > 0
+    },
     synthetic_fixture: {
       translated: false,
       source: null,
