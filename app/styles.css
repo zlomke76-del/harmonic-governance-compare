@@ -2756,3 +2756,16 @@ pre {
   .runtimeDispositionHeader, .engineeringToolbar { align-items: flex-start; flex-direction: column; }
   .runtimeDispositionGrid { grid-template-columns: 1fr; }
 }
+
+
+/* V101 — custom scenario entry visibility */
+.customPromptField {
+  display: block;
+  margin-top: 2px;
+}
+.customPromptField textarea {
+  min-height: 156px;
+}
+.witnessPanel[open] {
+  scroll-margin-top: 18px;
+}

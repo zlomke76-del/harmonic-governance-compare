@@ -1918,7 +1918,9 @@ export default function Home() {
   const patternOptions = useMemo(() => [PATTERN_ALL, ...Array.from(new Set(scenarios.map((item) => item.pattern)))], [scenarios]);
   const [selectedPattern, setSelectedPattern] = useState(PATTERN_ALL);
   const filteredScenarios = useMemo(
-    () => scenarios.filter((item) => selectedPattern === PATTERN_ALL || item.pattern === selectedPattern),
+    () => scenarios.filter(
+      (item) => item.id === CUSTOM_SCENARIO_ID || selectedPattern === PATTERN_ALL || item.pattern === selectedPattern
+    ),
     [scenarios, selectedPattern]
   );
   const selectedScenarioOption = scenarios.find((item) => item.id === scenario) ?? scenarios[0];
@@ -2188,10 +2190,18 @@ export default function Home() {
           </details>
 
           {scenario === CUSTOM_SCENARIO_ID ? (
-            <label>
-              Custom scenario name
-              <input value={customScenarioName} onChange={(e) => setCustomScenarioName(e.target.value)} />
-            </label>
+            <>
+              <label>
+                Custom scenario name
+                <input value={customScenarioName} onChange={(e) => setCustomScenarioName(e.target.value)} />
+              </label>
+
+              <label className="customPromptField">
+                Test prompt
+                <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
+                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={7} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
+              </label>
+            </>
           ) : null}
 
           {scenario === CUSTOM_SCENARIO_ID ? (
@@ -2227,7 +2237,7 @@ export default function Home() {
           ) : null}
 
           {scenario === CUSTOM_SCENARIO_ID && !exactPacketReplay ? (
-            <details className="witnessPanel">
+            <details className="witnessPanel" open>
               <summary><span>Structured constitutional witnesses</span><small>Optional · use when the scenario depends on explicit authority, continuity, provenance, obligation, or accountability facts</small></summary>
               <p className="witnessNote">Custom narrative is not treated as authority evidence. Supply explicit structured witnesses here when the test depends on authority, continuity, or downstream accountability.</p>
               <div className="witnessActions">
@@ -2263,11 +2273,13 @@ export default function Home() {
 
           {!(scenario === CUSTOM_SCENARIO_ID && exactPacketReplay) ? (
             <>
-              <label>
-                Test prompt
-                <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
-              </label>
+              {scenario !== CUSTOM_SCENARIO_ID ? (
+                <label>
+                  Test prompt
+                  <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
+                  <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
+                </label>
+              ) : null}
 
               <label className="checkbox">
                 <input
