@@ -72,7 +72,7 @@ const CUSTOM_SCENARIO_ID = "custom";
 const PATTERN_ALL = "All constitutional patterns";
 
 const RUNTIME_OPTIONS: Array<{ id: RuntimeTarget; label: string; note: string }> = [
-  { id: "v4_1", label: "Runtime 4.1 · Primary", note: "Frozen Harmonic Runtime v4.1 production reference" },
+  { id: "v4_1", label: "Harmonic v4.2.0 · Frozen Primary", note: "Governance Contract 4.2 · Governance Visibility Upgrade" },
   { id: "v2", label: "Frozen V2 · 6a3a89f", note: "TA-14 frozen implementation boundary" }
 ];
 
@@ -1481,6 +1481,10 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
       { label: "Replay Packet ID", value: String(requestWitness.packet_id || "Not returned") }
     ] : []),
     { label: "Execution Packet", value: stableArtifactId(result, lane) },
+    { label: "Harmonic Release", value: result.harmonicRelease || result.runtimeLabel || "Not returned" },
+    { label: "Governance Contract", value: result.governanceContractVersion ? `Harmonic Governance Contract v${result.governanceContractVersion}` : "Not returned" },
+    { label: "Visibility Schema", value: result.visibilitySchemaVersion ? `v${result.visibilitySchemaVersion}` : "Not returned" },
+    { label: "Release Classification", value: result.releaseClassification || "Not returned" },
     { label: "API Contract", value: transaction.contract === "single_api_call" ? "Universal single call · /api/evaluate" : "Universal runtime response" },
     { label: "Runtime", value: lane?.evaluation.available ? "External Harmonic / Governance Pack" : "Local fallback / endpoint not configured" },
     {
@@ -1586,7 +1590,11 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
       scenario: result.scenario,
       model: result.model,
       generatedAt: result.generatedAt,
-      runtimeLabel: result.runtimeLabel || "Current Production"
+      runtimeLabel: result.runtimeLabel || "Current Production",
+      harmonicRelease: result.harmonicRelease || null,
+      governanceContractVersion: result.governanceContractVersion || null,
+      visibilitySchemaVersion: result.visibilitySchemaVersion || null,
+      releaseClassification: result.releaseClassification || null
     },
     lane: lane ? {
       lane: lane.lane,
@@ -2296,6 +2304,7 @@ export default function Home() {
             <>
               <div className="meta">
                 <span>Runtime: {result.runtimeLabel || "Current Production"}</span>
+                {result.governanceContractVersion ? <span>Contract: v{result.governanceContractVersion} · Visibility Schema v{result.visibilitySchemaVersion}</span> : null}
                 <span>Scenario: {result.scenario}</span>
                 <span>{new Date(result.generatedAt).toLocaleString()}</span>
               </div>
