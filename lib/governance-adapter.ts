@@ -19,7 +19,7 @@ import type {
 
 const DEFAULT_HARMONIC_API_URL = "https://www.solace-harmonic.com/api/evaluate";
 
-const HARNESS_METHODOLOGY_VERSION = "v94-frozen-structured-fixtures-2026-08-27";
+const HARNESS_METHODOLOGY_VERSION = "v95-native-runtime-contract-normalization-2026-08-27";
 const HARNESS_METHODOLOGY_DESCRIPTOR = {
   packet_construction: "explicit-witness-first",
   model_response_role: "proposed_response_only",
@@ -869,6 +869,96 @@ function deriveObligationHints(prompt: string): ObligationHint | undefined {
     canonical_text: canonicalText,
   };
 }
+
+function fixtureActorId(actor: unknown, fallback: string): string {
+  const record = asRecord(actor);
+  return typeof record?.id === "string" && record.id.trim() ? record.id : fallback;
+}
+
+function buildNativeAuthorityContract(
+  provenance: GovernanceAuthorityProvenance | undefined,
+  requestedAction: GovernanceRequestedAction
+): { authority_chain?: Record<string, unknown>; revocation_state?: Record<string, unknown> } {
+  if (!provenance) return {};
+
+  const current = provenance.current_authority;
+  const original = provenance.original_authority;
+  const currentActor = fixtureActorId(current?.actor, "fixture-authority");
+  const issuerActor = fixtureActorId(original?.actor, "fixture-authority-issuer");
+  const grantedScope =
+    Array.isArray(current?.scope) && current.scope.length ? current.scope :
+    Array.isArray(original?.scope) && original.scope.length ? original.scope :
+    requestedAction.scope;
+
+  // Schema projection only: the fixture already stipulates active current
+  // authority and its scope. Harmonic 4.1 consumes authority_chain and
+  // revocation_state rather than the harness provenance object.
+  return {
+    authority_chain: {
+      subject: currentActor,
+      issuer: issuerActor,
+      scope: grantedScope,
+      last_verified_at: "TN_FIXTURE",
+      chain: [
+        { actor: currentActor, status: "active" },
+        ...(issuerActor === currentActor ? [] : [{ actor: issuerActor, status: "active" }])
+      ],
+      source_class: "frozen_structured_falsification_fixture",
+      authority_source_ref: current?.authority_source_ref || original?.authority_source_ref || null,
+      evidence_refs: [
+        ...(original?.evidence_refs || []),
+        ...(current?.evidence_refs || [])
+      ]
+    },
+    revocation_state: {
+      last_revocation_check_at: "TN_FIXTURE",
+      known_revocations: [],
+      source_class: "frozen_structured_falsification_fixture"
+    }
+  };
+}
+
+function nativeObligationRequest(witness: GovernanceObligationWitness | undefined): string | undefined {
+  if (!witness) return undefined;
+
+  const statusSentence =
+    witness.status === "unsatisfied"
+      ? "The mandatory requirement has not been satisfied."
+      : witness.status === "satisfied"
+        ? "The mandatory requirement has been satisfied."
+        : "The mandatory requirement status is unresolved.";
+
+  const waiverSentence = witness.waiver_or_exception_active
+    ? "An applicable waiver or exception is active."
+    : "No waiver or exception is active.";
+
+  return [
+    `Institution policy requires that ${witness.canonical_text.replace(/\.$/, "")} before execution.`,
+    statusSentence,
+    waiverSentence
+  ].join(" ");
+}
+
+function buildNativeStateProvenance(
+  witness: GovernanceStateProvenanceWitness | undefined
+): Record<string, unknown> | undefined {
+  if (!witness) return undefined;
+
+  const nativeEpistemicStatus =
+    witness.epistemic_status === "STIPULATED_SYNTHETIC_FIXTURE"
+      ? "ESTABLISHED"
+      : witness.epistemic_status;
+
+  return {
+    attributable_source: witness.attributable_source,
+    epistemic_status: nativeEpistemicStatus,
+    evidence_refs: witness.source_evidence_refs,
+    fixture_epistemic_status: witness.epistemic_status,
+    derivation_ref: witness.derivation_ref ?? null,
+    derivation_method: witness.derivation_method ?? null
+  };
+}
+
 function buildGovernancePackPayload(params: {
   prompt: string;
   response: string;
@@ -908,6 +998,10 @@ function buildGovernancePackPayload(params: {
     type: "unspecified",
     scope: [params.scenario]
   };
+
+  const nativeAuthority = buildNativeAuthorityContract(effectiveAuthorityProvenance, requestedAction);
+  const nativeObligation = nativeObligationRequest(params.obligationWitness);
+  const nativeStateProvenance = buildNativeStateProvenance(effectiveStateProvenance);
 
   const consequenceLevel =
     requestedAction.type === "financial_execution"
@@ -949,6 +1043,12 @@ function buildGovernancePackPayload(params: {
     // Bind the exact candidate being governed. This is deliberately separate
     // from declared_reality / observed_reality.
     response: params.response,
+
+    // The obligation primitive consumes caller-supplied request text. This field
+    // is a deterministic projection of the explicit structured witness only.
+    ...(nativeObligation ? { request: nativeObligation } : {}),
+
+    ...nativeAuthority,
 
     harness_witness_meta: {
       adapter_build: HARNESS_METHODOLOGY_VERSION,
@@ -1045,7 +1145,7 @@ function buildGovernancePackPayload(params: {
   }
   if (effectiveAuthorityProvenance) packet.authority_provenance = effectiveAuthorityProvenance;
   if (params.obligationWitness) packet.obligation_witness = params.obligationWitness;
-  if (effectiveStateProvenance) packet.present_state_provenance = effectiveStateProvenance;
+  if (nativeStateProvenance) packet.present_state_provenance = nativeStateProvenance;
   if (params.downstreamAccountability) packet.downstream_accountability = params.downstreamAccountability;
 
   return packet;
@@ -1200,7 +1300,14 @@ function buildGovernanceRequestWitness(payload: unknown) {
           : "not_supplied",
       attributable_source: typeof stateProvenance?.attributable_source === "string" ? stateProvenance.attributable_source : null,
       epistemic_status: typeof stateProvenance?.epistemic_status === "string" ? stateProvenance.epistemic_status : null,
-      evidence_ref_count: Array.isArray(stateProvenance?.source_evidence_refs) ? stateProvenance.source_evidence_refs.length : 0
+      fixture_epistemic_status: typeof stateProvenance?.fixture_epistemic_status === "string"
+        ? stateProvenance.fixture_epistemic_status
+        : null,
+      evidence_ref_count: Array.isArray(stateProvenance?.evidence_refs)
+        ? stateProvenance.evidence_refs.length
+        : Array.isArray(stateProvenance?.source_evidence_refs)
+          ? stateProvenance.source_evidence_refs.length
+          : 0
     },
     downstream_accountability: {
       supplied: witnessMeta.downstream_accountability_explicit === true,
