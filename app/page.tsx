@@ -1536,7 +1536,24 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
     { label: "Binding Consequence Surface", value: String(consequenceTopology.binding_surface || "Not established") },
     { label: "Governed Consequence Surface", value: String(consequenceTopology.governed_surface || "Not established") },
     { label: "Consequence Surface Status", value: `execution=${String(consequenceTopology.execution_surface_established ?? "unknown")} · downstream=${String(consequenceTopology.downstream_binding_surface_established ?? "unknown")} · direct=${String(consequenceTopology.direct_binding_execution ?? "unknown")} · invariant=${String(consequenceInvariant.satisfied ?? "unknown")}` },
-    { label: "Consequence Level / Reversibility", value: `${String(consequenceTopology.level || "unknown")} · ${String(consequenceTopology.reversibility || "unknown")}` },
+    {
+      label: "Consequence Level / Reversibility",
+      value: consequenceTopology.consequence_surface_established === true || consequenceInvariant.surface_status === "ESTABLISHED"
+        ? `${String(consequenceTopology.level || "unknown")} · ${String(consequenceTopology.reversibility || "unknown")}`
+        : "Not established"
+    },
+    ...(() => {
+      if (consequenceTopology.consequence_surface_established === true || consequenceInvariant.surface_status === "ESTABLISHED") return [];
+      const canonicalPacket = getRawRecord(requestWitness.canonical_packet);
+      const canonicalExport = getRawRecord(canonicalPacket.export);
+      const safeguards = getRawRecord(canonicalExport.safeguards);
+      const classifier = getRawRecord(safeguards.execution_surface_classifier);
+      if (classifier.epistemic_status !== "INFERRED_ADVISORY_ONLY" || classifier.governance_material !== false) return [];
+      return [{
+        label: "Harness Advisory Classification",
+        value: `${String(classifier.consequenceLevel || "unknown")} · ${String(classifier.reversibility || "unknown")} · non-governance-material`
+      }];
+    })(),
     { label: "Causal Signals", value: `${Array.isArray(derivedDeps.controlling_signals) ? derivedDeps.controlling_signals.length : 0} blocking · ${Array.isArray(derivedDeps.contextual_signals) ? derivedDeps.contextual_signals.length : 0} contextual` },
     { label: "Determination", value: `${String(determination.outcome || lane?.evaluation.decision || "UNKNOWN")} · admissible=${String(determination.admissible ?? "unknown")} · action=${String(determination.action || "none")}` },
     { label: "Determination Identity", value: `${String(determination.determination_id || "not returned")} · ${shortHash(typeof determination.determination_hash === "string" ? determination.determination_hash : undefined)}` },
