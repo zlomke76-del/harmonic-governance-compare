@@ -2232,16 +2232,36 @@ export default function Home() {
 
           {scenario === CUSTOM_SCENARIO_ID ? (
             <section className="exactReplayPanel">
-              <label className="checkbox exactReplayToggle">
-                <input
-                  type="checkbox"
-                  checked={exactPacketReplay}
-                  onChange={(e) => setExactPacketReplay(e.target.checked)}
-                />
-                Exact packet replay — literal transport, no model, no semantic translation
-              </label>
-              {exactPacketReplay ? (
+              {!exactPacketReplay ? (
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  onClick={() => {
+                    setExactPacketJson("");
+                    setError(null);
+                    setResult(null);
+                    setExactPacketReplay(true);
+                  }}
+                >
+                  Enter exact packet replay mode
+                </button>
+              ) : (
                 <>
+                  <div className="witnessActions">
+                    <strong>Exact packet replay — literal transport, no model, no semantic translation</strong>
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => {
+                        setExactPacketReplay(false);
+                        setExactPacketJson("");
+                        setError(null);
+                        setResult(null);
+                      }}
+                    >
+                      Exit exact replay
+                    </button>
+                  </div>
                   <p className="witnessBoundary"><strong>Transport boundary:</strong> the JSON text below is validated for syntax and an explicit packet_id, then forwarded unchanged as the HTTP body to the configured Harmonic <code>/api/evaluate</code> endpoint. The harness does not infer, add, remove, rename, normalize, or reinterpret constitutional facts.</p>
                   <label>
                     Exact /api/evaluate request JSON
@@ -2258,7 +2278,7 @@ export default function Home() {
                   </label>
                   <p className="witnessNote">Replay integrity is checked against packet_id. The Engineering View records the SHA-256 and byte length of the exact outbound JSON body.</p>
                 </>
-              ) : null}
+              )}
             </section>
           ) : null}
 
