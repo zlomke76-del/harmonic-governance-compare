@@ -1,0 +1,13 @@
+const fs=require("fs");
+const page=fs.readFileSync("app/page.tsx","utf8");
+const assert=(v,m)=>{if(!v)throw new Error(m);};
+const start=page.indexOf('id: "v3-nda-authority-history"');
+const end=page.indexOf('id: "emergency-continuity-life-safety"',start);
+const block=page.slice(start,end);
+assert(block.includes('type: "execute_supplier_nda_signature"'),"explicit requested action missing");
+assert(block.includes('scope: ["supplier_nda"]'),"scope not aligned");
+assert(block.includes('realityWitness:'),"reality witness missing");
+assert(block.includes('consequenceProfile:'),"consequence profile missing");
+assert(block.includes('stateProvenance:'),"state provenance missing");
+assert(block.includes('authority_change:'),"structured authority change missing");
+console.log("V97 NDA authority fixture: PASS");
