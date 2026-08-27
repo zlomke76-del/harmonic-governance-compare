@@ -196,7 +196,7 @@ export async function POST(req: Request) {
 
     const payload: CompareResponse = {
       runtimeTarget: parsed.runtimeTarget,
-      runtimeLabel: parsed.runtimeTarget === "v2" ? "Frozen V2 · 6a3a89f" : "Current V4",
+      runtimeLabel: parsed.runtimeTarget === "v2" ? "Frozen V2 · 6a3a89f" : "Current Production",
       prompt: parsed.prompt,
       scenario: parsed.scenario,
       model: `${getProviderLabel(parsed.model)} · ${getModelName(parsed.model)}`,
