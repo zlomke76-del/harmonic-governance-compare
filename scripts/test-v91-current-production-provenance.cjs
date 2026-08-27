@@ -1,0 +1,13 @@
+const fs=require("fs"),path=require("path");
+const read=p=>fs.readFileSync(path.join(process.cwd(),p),"utf8");
+const assert=(c,m)=>{if(!c)throw new Error(m)};
+const page=read("app/page.tsx");
+const compare=read("app/api/compare/route.ts");
+const replay=read("app/api/replay-exact/route.ts");
+assert(page.includes('label: "Current Production"'),"selector not updated");
+assert(page.includes('label: "Runtime Build"'),"Runtime Build missing");
+assert(page.includes('label: "Consequence Boundary"'),"Consequence Boundary version missing");
+assert(page.includes("function getLiveRuntimeBuild"),"runtime build resolver missing");
+assert(compare.includes('"Current Production"'),"compare label missing");
+assert(replay.includes('"Current Production · Exact packet replay"'),"replay label missing");
+console.log("V91 current production provenance regression: PASS");
