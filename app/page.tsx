@@ -1950,6 +1950,17 @@ export default function Home() {
     window.localStorage.setItem("harmonic.compare.scenario", scenario);
 }, [selectedModel, scenario, runtimeTarget]);
 
+  useEffect(() => {
+    if (scenario !== CUSTOM_SCENARIO_ID) return;
+
+    // Custom entry is always a clean live-evaluation surface on entry/mount.
+    // This also defeats browser/React state restoration from a prior exact replay.
+    setExactPacketReplay(false);
+    setExactPacketJson("");
+    setError(null);
+    setResult(null);
+  }, [scenario]);
+
   function applyScenario(id: string) {
     const selected = scenarios.find((item) => item.id === id);
     setScenario(id);
