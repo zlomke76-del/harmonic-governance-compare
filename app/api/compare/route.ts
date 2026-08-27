@@ -15,6 +15,7 @@ import type {
   GovernanceConsequenceProfile,
   GovernanceObligationWitness,
   GovernanceStateProvenanceWitness,
+  GovernanceUnderstandingWitness,
   LaneName,
   LaneResult,
   RuntimeTarget
@@ -51,6 +52,7 @@ const RequestSchema = z.object({
   downstreamAccountability: z.record(z.string(), z.unknown()).optional(),
   obligationWitness: z.record(z.string(), z.unknown()).optional(),
   stateProvenance: z.record(z.string(), z.unknown()).optional(),
+  understandingWitness: z.record(z.string(), z.unknown()).optional(),
   allowHarnessInference: z.boolean().default(false)
 });
 
@@ -115,6 +117,7 @@ async function runUnifiedGovernedLanes(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  understandingWitness?: GovernanceUnderstandingWitness;
   allowHarnessInference?: boolean;
 }): Promise<LaneResult[]> {
   const started = Date.now();
@@ -134,6 +137,7 @@ async function runUnifiedGovernedLanes(params: {
     downstreamAccountability: params.downstreamAccountability,
     obligationWitness: params.obligationWitness,
     stateProvenance: params.stateProvenance,
+    understandingWitness: params.understandingWitness,
     allowHarnessInference: params.allowHarnessInference
   });
 
@@ -190,6 +194,7 @@ export async function POST(req: Request) {
         downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined,
         obligationWitness: (parsed.obligationWitness as GovernanceObligationWitness | undefined) || frozenFixture?.obligationWitness,
         stateProvenance: (parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined) || frozenFixture?.stateProvenance,
+        understandingWitness: (parsed.understandingWitness as GovernanceUnderstandingWitness | undefined) || frozenFixture?.understandingWitness,
         allowHarnessInference: frozenFixture ? false : parsed.allowHarnessInference
       })
     ]);
