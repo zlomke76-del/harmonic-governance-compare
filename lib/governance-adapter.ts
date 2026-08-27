@@ -537,7 +537,12 @@ function buildHarmonicOnlyPayload(params: { prompt: string; response: string; sc
     consequence_level: context.consequenceLevel === "critical" ? "high" : context.consequenceLevel,
     execution_surface: context.surface,
     execution_context: context,
-    suggested_decision: decisionFromExecutionContext(context)
+    harness_methodology: {
+      mode: "exploratory_natural_language",
+      classifier_role: "transport_annotation_only",
+      disposition_authority: "harmonic",
+      non_claim: "Harness classification is not a governance determination."
+    }
   };
 }
 
@@ -880,31 +885,68 @@ function buildGovernancePackPayload(params: {
   stateProvenance?: GovernanceStateProvenanceWitness;
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
-  const now = new Date().toISOString();
   const fixtureWitness = deriveSyntheticFixtureWitness(params.prompt, params.scenario);
   const effectiveRequestedAction = params.requestedAction || fixtureWitness?.requestedAction;
   const effectiveAuthorityProvenance = params.authorityProvenance || fixtureWitness?.authorityProvenance;
   const effectiveStateProvenance = params.stateProvenance || fixtureWitness?.stateProvenance;
-  const context = classifyExecutionContext(params);
-  const consequenceLevel = effectiveRequestedAction?.type === "financial_execution" ? "critical" : context.consequenceLevel;
-  const actionType = effectiveRequestedAction?.type || context.surface;
-  const obligationHint = params.obligationWitness || deriveObligationHints(params.prompt);
-  const scenarioPrompt = obligationHint
-    ? `${params.prompt}\n\n[HARMONIC HARNESS OBLIGATION WITNESS]\n${obligationHint.canonical_text}`
-    : params.prompt;
 
-  return {
+  // V86 methodology hardening:
+  // The candidate response is a proposed consequence/output. It is never evidence
+  // about external reality merely because a model generated it. All harness-side
+  // semantic classification is therefore computed from the operator-authored
+  // scenario only, never from params.response.
+  const context = classifyExecutionContext({
+    prompt: params.prompt,
+    scenario: params.scenario,
+    response: ""
+  });
+
+  const requestedAction = effectiveRequestedAction || {
+    type: context.surface,
+    scope: [params.scenario]
+  };
+
+  const consequenceLevel =
+    requestedAction.type === "financial_execution" ? "critical" : context.consequenceLevel;
+
+  const explicitStructuredInput =
+    Boolean(params.governanceFacts) ||
+    Boolean(params.authorityProvenance) ||
+    Boolean(params.requestedAction) ||
+    Boolean(params.downstreamAccountability) ||
+    Boolean(params.obligationWitness) ||
+    Boolean(params.stateProvenance);
+
+  const methodologyMode = fixtureWitness
+    ? "structured_fixture"
+    : explicitStructuredInput
+      ? "explicit_structured"
+      : "exploratory_natural_language";
+
+  const derivedFields: string[] = [];
+  if (!effectiveRequestedAction) derivedFields.push("requested_action");
+  if (!params.requestedAction && !fixtureWitness?.requestedAction) derivedFields.push("consequence_profile");
+  if (fixtureWitness) derivedFields.push(...fixtureWitness.translatedFields);
+
+  const packet: Record<string, unknown> = {
     packet_id: `${params.scenario}-${crypto.randomUUID()}`,
 
-    // Preserve the operator-authored execution scenario as first-class
-    // governance input. The constitutional runtime must see the scenario
-    // itself, not only the LLM response and fields inferred by this harness.
+    // Preserve the operator-authored scenario as narrative context, not as a
+    // fabricated current-state observation.
     prompt: params.prompt,
-    scenario_prompt: scenarioPrompt,
-    ...(obligationHint ? { obligation_witness: obligationHint } : {}),
-    ...(effectiveStateProvenance ? { present_state_provenance: effectiveStateProvenance } : {}),
+    scenario_prompt: params.prompt,
     scenario_label: params.scenario,
+
+    // Bind the exact candidate being governed. This is deliberately separate
+    // from declared_reality / observed_reality.
+    response: params.response,
+
     harness_witness_meta: {
+      adapter_build: "v86-methodology-hardening-2026-08-26",
+      methodology_mode: methodologyMode,
+      disposition_authority: "harmonic",
+      model_response_role: "proposed_response_only",
+      model_response_used_as_observed_reality: false,
       requested_action_explicit: Boolean(params.requestedAction),
       authority_provenance_explicit: Boolean(params.authorityProvenance),
       obligation_witness_explicit: Boolean(params.obligationWitness),
@@ -912,78 +954,64 @@ function buildGovernancePackPayload(params: {
       state_provenance_explicit: Boolean(params.stateProvenance),
       synthetic_fixture_translated: Boolean(fixtureWitness),
       synthetic_fixture_source: fixtureWitness?.fixtureSource || null,
-      synthetic_fixture_fields: fixtureWitness?.translatedFields || []
+      synthetic_fixture_fields: fixtureWitness?.translatedFields || [],
+      harness_derived_fields: derivedFields,
+      freshness_stamped_by_harness: false,
+      whole_prompt_promoted_to_current_reality: false
     },
 
-    continuity: params.governanceFacts
-      ? {
-          life_safety_context: params.governanceFacts.life_safety_context ?? null,
-          primary_authority_available: params.governanceFacts.primary_authority_available ?? null,
-          emergency_continuity_defined: params.governanceFacts.emergency_continuity_defined ?? null,
-          explicit_emergency_activation: params.governanceFacts.explicit_emergency_activation ?? null,
-          emergency_authority_available: params.governanceFacts.emergency_authority_available ?? null,
-          emergency_authority: params.governanceFacts.emergency_authority ?? null
-        }
-      : deriveContinuityHints(params.prompt),
+    requested_action: requestedAction,
 
-    requested_action: effectiveRequestedAction || {
-      type: actionType,
-      scope: [params.scenario]
-    },
-    declared_reality: {
-      current_state_claims: [params.prompt],
-      last_verified_at: now
-    },
-    observed_reality: {
-      signals: [
-        {
-          statement: params.response
-        }
-      ]
-    },
-    authority_chain: {
-      subject: "llm-agent-1",
-      issuer: "harmonic-governance-compare",
-      scope: effectiveRequestedAction?.scope || [params.scenario],
-      last_verified_at: now,
-      chain: [
-        { actor: "llm-agent-1", status: "active" },
-        { actor: "harmonic-governance-compare", status: "active" }
-      ]
-    },
-    ...(effectiveAuthorityProvenance ? { authority_provenance: effectiveAuthorityProvenance } : {}),
-    ...(params.downstreamAccountability ? { downstream_accountability: params.downstreamAccountability } : {}),
-    revocation_state: {
-      last_revocation_check_at: now
-    },
     consequence_profile: {
       level: consequenceLevel,
-      reversibility: effectiveRequestedAction?.type === "financial_execution" ? "difficult_to_reverse" : context.reversibility,
-      execution_surface: actionType,
+      reversibility:
+        requestedAction.type === "financial_execution"
+          ? "difficult_to_reverse"
+          : context.reversibility,
+      execution_surface: requestedAction.type,
       execution_surface_reason: context.reason,
-      requires_operator_review: effectiveRequestedAction?.type === "financial_execution" ? true : context.requiresOperatorReview,
+      requires_operator_review:
+        requestedAction.type === "financial_execution"
+          ? true
+          : context.requiresOperatorReview,
       should_block_execution: context.shouldBlockExecution,
-      should_escalate: context.shouldEscalate
+      should_escalate: context.shouldEscalate,
+      source_class:
+        effectiveRequestedAction
+          ? "structured_requested_action"
+          : "harness_exploratory_classification"
     },
+
     safeguards: {
-      // Synthetic falsification fixtures isolate the authority-continuity variable.
-      // The action remains classified as critical financial execution, but the
-      // independent operator-review prerequisite is stipulated satisfied so it
-      // cannot become a second blocking cause. This does not alter Harmonic or
-      // weaken consequence governance for ordinary/custom production packets.
-      operator_review_confirmed: Boolean(fixtureWitness),
-      execution_surface_classifier: context,
+      execution_surface_classifier: {
+        ...context,
+        source_class: "harness_exploratory_classification",
+        model_response_consulted: false
+      },
       ...(fixtureWitness
         ? {
             synthetic_fixture_control: {
               mode: "AUTHORITY_CONTINUITY_ISOLATION",
               operator_review_stipulated_satisfied: true,
-              source: fixtureWitness.fixtureSource
-            }
+              source: fixtureWitness.fixtureSource,
+              test_intervention: true
+            },
+            operator_review_confirmed: true
           }
         : {})
     }
   };
+
+  // Only explicit or frozen fixture state enters structured governance fields.
+  // Absence remains absence; the harness does not manufacture reality,
+  // freshness, authority checks, revocation checks, or obligation status.
+  if (params.governanceFacts) packet.continuity = { ...params.governanceFacts };
+  if (effectiveAuthorityProvenance) packet.authority_provenance = effectiveAuthorityProvenance;
+  if (params.obligationWitness) packet.obligation_witness = params.obligationWitness;
+  if (effectiveStateProvenance) packet.present_state_provenance = effectiveStateProvenance;
+  if (params.downstreamAccountability) packet.downstream_accountability = params.downstreamAccountability;
+
+  return packet;
 }
 
 function buildPayload(params: {
@@ -1053,11 +1081,23 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v84-authority-isolation-control-2026-08-25",
+    adapter_build: "v86-methodology-hardening-2026-08-26",
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
+    methodology: {
+      mode: typeof witnessMeta.methodology_mode === "string" ? witnessMeta.methodology_mode : "unknown",
+      disposition_authority: typeof witnessMeta.disposition_authority === "string" ? witnessMeta.disposition_authority : "harmonic",
+      harness_derived_fields: Array.isArray(witnessMeta.harness_derived_fields) ? witnessMeta.harness_derived_fields : [],
+      freshness_stamped_by_harness: witnessMeta.freshness_stamped_by_harness === true,
+      whole_prompt_promoted_to_current_reality: witnessMeta.whole_prompt_promoted_to_current_reality === true
+    },
+    model_response_binding: {
+      role: typeof witnessMeta.model_response_role === "string" ? witnessMeta.model_response_role : null,
+      used_as_observed_reality: witnessMeta.model_response_used_as_observed_reality === true,
+      response_supplied: typeof packet.response === "string" && packet.response.trim().length > 0
+    },
     synthetic_fixture: {
       translated: witnessMeta.synthetic_fixture_translated === true,
       source: typeof witnessMeta.synthetic_fixture_source === "string" ? witnessMeta.synthetic_fixture_source : null,
@@ -1405,6 +1445,17 @@ function evaluationFromUnifiedArtifact(params: {
       receipt_hash: assurance?.receipt_hash || null
     };
 
+  const runtimeFlags = getFlags(
+    firstPresent(layer.flags, layer.warnings, layer.findings, layer.issues, layer.violations)
+  );
+  const methodologyFlags: string[] = [];
+  if (params.requestWitness.methodology.mode === "exploratory_natural_language") {
+    methodologyFlags.push("HARNESS_MODE: exploratory natural-language classification; not a clean primitive falsification fixture.");
+  }
+  if (params.requestWitness.synthetic_fixture.translated) {
+    methodologyFlags.push("TEST_INTERVENTION: synthetic fixture translation/control is active and preserved in the witness.");
+  }
+
   return {
     available: true,
     decision,
@@ -1414,9 +1465,7 @@ function evaluationFromUnifiedArtifact(params: {
         ? "Harmonic stabilization result from the unified transaction."
         : "Harmonic+ constitutional result from the unified transaction."
     ),
-    flags: getFlags(
-      firstPresent(layer.flags, layer.warnings, layer.findings, layer.issues, layer.violations)
-    ),
+    flags: [...runtimeFlags, ...methodologyFlags],
     primitiveResults,
     raw: {
       ...layer,
@@ -1448,16 +1497,9 @@ function evaluationFromV2Artifact(params: {
       : undefined;
 
   const artifactDecision = decisionFromArtifact(layer);
-  const decision =
-    params.lane === "harmonic_governance" && artifactDecision !== "UNKNOWN"
-      ? artifactDecision
-      : mostRestrictiveDecision(
-          artifactDecision,
-          decisionFromPrimitiveResults(primitiveResults),
-          params.lane === "harmonic_governance"
-            ? decisionFromExecutionContext(classifyExecutionContext(params))
-            : "UNKNOWN"
-        );
+  // V86: The harness never synthesizes or upgrades a runtime disposition.
+  // If the runtime artifact does not carry a determination, preserve UNKNOWN.
+  const decision = artifactDecision;
 
   const constitutionalDetermination = asRecord(params.artifact.constitutional_determination);
   const constitutionalReceipt = asRecord(params.artifact.constitutional_receipt);
@@ -1472,7 +1514,15 @@ function evaluationFromV2Artifact(params: {
         ? "Frozen V2 Harmonic stabilization result."
         : "Frozen V2 constitutional determination."
     ),
-    flags: getFlags(firstPresent(layer.flags, layer.warnings, layer.findings, layer.issues, layer.violations)),
+    flags: [
+      ...getFlags(firstPresent(layer.flags, layer.warnings, layer.findings, layer.issues, layer.violations)),
+      ...(params.requestWitness.methodology.mode === "exploratory_natural_language"
+        ? ["HARNESS_MODE: exploratory natural-language classification; not a clean primitive falsification fixture."]
+        : []),
+      ...(params.requestWitness.synthetic_fixture.translated
+        ? ["TEST_INTERVENTION: synthetic fixture translation/control is active and preserved in the witness."]
+        : [])
+    ],
     primitiveResults,
     raw: {
       ...layer,
@@ -1654,8 +1704,8 @@ export async function evaluateUnifiedGovernance(params: {
     const unavailable: GovernanceEvaluation = {
       available: false,
       decision: "UNKNOWN",
-      summary: "No unified Harmonic API key configured. Prompt-level constraints were still applied.",
-      flags: ["endpoint-not-configured"]
+      summary: "NOT_EVALUATED: no unified Harmonic API key is configured.",
+      flags: ["not-evaluated", "endpoint-not-configured"]
     };
     return { harmonic: unavailable, harmonic_governance: unavailable };
   }
@@ -1682,7 +1732,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v84-authority-isolation-control-2026-08-25"
+      "X-Harmonic-Harness-Build": "v86-methodology-hardening-2026-08-26"
     },
     body: JSON.stringify(outboundPayload)
   });
@@ -1696,7 +1746,7 @@ export async function evaluateUnifiedGovernance(params: {
     const message = `Unified Harmonic API returned HTTP ${res.status}.`;
     if (process.env.STRICT_GOVERNANCE_API === "true") throw new Error(`${message} ${text}`);
     const failed: GovernanceEvaluation = {
-      available: false, decision: "UNKNOWN", summary: message, flags: ["api-error"], raw: json
+      available: false, decision: "UNKNOWN", summary: `TRANSPORT_FAILURE: ${message}`, flags: ["transport-failure"], raw: json
     };
     return { harmonic: failed, harmonic_governance: failed };
   }
@@ -1736,6 +1786,13 @@ export function projectExactPacketReplay(params: {
     prompt_present: typeof params.packet.prompt === "string" && params.packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof params.packet.scenario_prompt === "string" && params.packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof params.packet.scenario_label === "string" ? params.packet.scenario_label : null,
+    methodology: {
+      mode: "exact_packet_replay",
+      disposition_authority: "harmonic",
+      harness_derived_fields: [],
+      freshness_stamped_by_harness: false,
+      whole_prompt_promoted_to_current_reality: false
+    },
     model_response_binding: {
       role: "exact_packet_replay",
       used_as_observed_reality: false,
@@ -1887,22 +1944,17 @@ export async function evaluateGovernance(params: {
       return {
         available: false,
         decision: "UNKNOWN",
-        summary: message,
-        flags: ["api-error"],
+        summary: `TRANSPORT_FAILURE: ${message}`,
+        flags: ["transport-failure"],
         raw: json
       };
     }
 
     const primitiveResults = parsePrimitiveResults(json);
     const artifactDecision = decisionFromArtifact(json);
-    const decision =
-      params.lane === "harmonic_governance" && artifactDecision !== "UNKNOWN"
-        ? artifactDecision
-        : mostRestrictiveDecision(
-            artifactDecision,
-            decisionFromPrimitiveResults(primitiveResults),
-            params.lane === "harmonic_governance" ? decisionFromExecutionContext(classifyExecutionContext(params)) : "UNKNOWN"
-          );
+    // V86: preserve the runtime disposition exactly. Local primitive parsing and
+    // execution-context heuristics are explanatory only and cannot create a decision.
+    const decision = artifactDecision;
 
     const evidenceChain =
       params.lane === "harmonic_governance" &&
