@@ -1870,8 +1870,9 @@ export function projectExactPacketReplay(params: {
       fields: []
     },
     requested_action: {
-      supplied: Boolean(requestedAction),
-      source: Boolean(requestedAction) ? "exact_packet_replay" : "not_supplied",
+      present_in_packet: Boolean(requestedAction),
+      caller_supplied: Boolean(requestedAction),
+      provenance: Boolean(requestedAction) ? "exact_packet_replay" : "absent",
       type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
       scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
     },
