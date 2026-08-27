@@ -20,6 +20,8 @@ import type {
   RuntimeTarget
 } from "../../../lib/types";
 
+import { resolveFrozenScenarioFixture } from "../../../lib/scenario-fixtures";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -157,6 +159,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const parsed = RequestSchema.parse(body);
+    const frozenFixture = resolveFrozenScenarioFixture(parsed.scenario, parsed.prompt);
 
     // Generate exactly one candidate. Governance evaluates this candidate; it does
     // not trigger a second model generation that could confound the comparison.
@@ -178,15 +181,15 @@ export async function POST(req: Request) {
         prompt: parsed.prompt,
         scenario: parsed.scenario,
         response: candidate,
-        governanceFacts: parsed.governanceFacts,
-        authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
-        requestedAction: parsed.requestedAction as GovernanceRequestedAction | undefined,
-        realityWitness: parsed.realityWitness as GovernanceRealityWitness | undefined,
-        consequenceProfile: parsed.consequenceProfile as GovernanceConsequenceProfile | undefined,
+        governanceFacts: parsed.governanceFacts || frozenFixture?.governanceFacts,
+        authorityProvenance: (parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined) || frozenFixture?.authorityProvenance,
+        requestedAction: (parsed.requestedAction as GovernanceRequestedAction | undefined) || frozenFixture?.requestedAction,
+        realityWitness: (parsed.realityWitness as GovernanceRealityWitness | undefined) || frozenFixture?.realityWitness,
+        consequenceProfile: (parsed.consequenceProfile as GovernanceConsequenceProfile | undefined) || frozenFixture?.consequenceProfile,
         downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined,
-        obligationWitness: parsed.obligationWitness as GovernanceObligationWitness | undefined,
-        stateProvenance: parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined,
-        allowHarnessInference: parsed.allowHarnessInference
+        obligationWitness: (parsed.obligationWitness as GovernanceObligationWitness | undefined) || frozenFixture?.obligationWitness,
+        stateProvenance: (parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined) || frozenFixture?.stateProvenance,
+        allowHarnessInference: frozenFixture ? false : parsed.allowHarnessInference
       })
     ]);
 
