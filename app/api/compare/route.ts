@@ -95,6 +95,7 @@ async function runUnifiedGovernedLanes(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  allowHarnessInference?: boolean;
 }): Promise<LaneResult[]> {
   const started = Date.now();
 
