@@ -1177,14 +1177,41 @@ function LaneCard({ lane }: { lane: LaneResult }) {
 
 function requiredActionForDecision(lane?: LaneResult): string {
   const decision = lane?.evaluation.decision ?? "UNKNOWN";
-  const failed = lane?.evaluation.primitiveResults?.filter((primitive) => primitive.admissible === "FAIL") ?? [];
+  const primitives = lane?.evaluation.primitiveResults ?? [];
+  const failed = primitives.filter((primitive) => primitive.admissible === "FAIL");
   const failedLabels = failed.map((primitive) => primitive.label).join(", ");
 
   if (decision === "ALLOW") return "Continue execution under the current authorization and evidence state.";
   if (decision === "CONSTRAIN") return `Continue only inside the constrained boundary${failedLabels ? `: ${failedLabels}` : ""}. Revalidate changed conditions before expansion.`;
-  if (decision === "ESCALATE") return "Transfer continuation authority to the accountable operator. Execution remains suspended until authority resolution occurs.";
-  if (decision === "EMERGENCY_CONTINUITY") return "Do not execute through the ordinary path. Activate and preserve the explicitly authorized emergency-continuity path before consequential execution.";
-  if (decision === "BLOCK") return "Do not execute. Preserve the packet, stop the action, and require a new admissible authorization path.";
+  if (decision === "ESCALATE") return "Execution remains suspended. Follow the escalation path returned by Harmonic and establish the required continuation authority before execution.";
+  if (decision === "EMERGENCY_CONTINUITY") return "Do not execute through the ordinary path. Preserve the explicitly established emergency-continuity authority, scope, evidence, and review controls for consequential execution.";
+
+  if (decision === "BLOCK") {
+    const actions: string[] = ["Do not execute. Preserve the evaluated packet and stop the action."];
+    const failedKeys = new Set(failed.map((primitive) => primitive.key));
+
+    // Governance visibility only: project remediation from the primitive(s) Harmonic
+    // actually failed. Do not infer an authority transfer, operator-review duty, or
+    // other state transition that the returned constitutional artifact did not establish.
+    if (failedKeys.has("reality_contact")) {
+      actions.push("Supply attributable present-state evidence for the requested execution.");
+    }
+    if (failedKeys.has("authority_continuity")) {
+      actions.push("Establish the applicable current authority, including its source, scope, chain, verification, and revocation status.");
+    }
+    if (failedKeys.has("obligation_continuity")) {
+      actions.push("Resolve or re-establish the failed prerequisite or prohibition state; do not treat the prior state as current.");
+    }
+    if (failedKeys.has("consequence_boundary")) {
+      actions.push("Establish the requested action and its downstream binding consequence surface before reevaluation.");
+    }
+
+    // A runtime-admissibility failure is the aggregate result of upstream primitive
+    // failures, so it does not create an additional remediation instruction by itself.
+    actions.push("Submit a new packet for constitutional reevaluation; the blocked determination is not converted into permission.");
+    return actions.join(" ");
+  }
+
   return "No constitutional execution decision has been bound yet.";
 }
 
