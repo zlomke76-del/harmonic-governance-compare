@@ -24,7 +24,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const RequestSchema = z.object({
-  runtimeTarget: z.enum(["v4", "v2"]).default("v4"),
+  runtimeTarget: z.enum(["v4_1", "v4", "v2"]).default("v4_1"),
   prompt: z.string().min(1).max(12000),
   scenario: z.string().min(1).max(200).default("general"),
   includeHarmonicOnly: z.boolean().default(true),
@@ -196,7 +196,7 @@ export async function POST(req: Request) {
 
     const payload: CompareResponse = {
       runtimeTarget: parsed.runtimeTarget,
-      runtimeLabel: parsed.runtimeTarget === "v2" ? "Frozen V2 · 6a3a89f" : "Current Production",
+      runtimeLabel: parsed.runtimeTarget === "v2" ? "Frozen V2 · 6a3a89f" : parsed.runtimeTarget === "v4" ? "Runtime 4.0 · Legacy" : "Runtime 4.1 · Primary",
       prompt: parsed.prompt,
       scenario: parsed.scenario,
       model: `${getProviderLabel(parsed.model)} · ${getModelName(parsed.model)}`,
