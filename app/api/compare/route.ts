@@ -38,7 +38,8 @@ const RequestSchema = z.object({
     emergency_continuity_defined: z.boolean().nullable().optional(),
     explicit_emergency_activation: z.boolean().nullable().optional(),
     emergency_authority_available: z.boolean().nullable().optional(),
-    emergency_authority: z.string().max(200).nullable().optional()
+    emergency_authority: z.string().max(200).nullable().optional(),
+    operator_review_confirmed: z.boolean().nullable().optional()
   }).optional(),
   authorityProvenance: z.record(z.string(), z.unknown()).optional(),
   requestedAction: z.object({
