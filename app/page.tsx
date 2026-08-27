@@ -2010,19 +2010,34 @@ export default function Home() {
     }, null, 2));
 
     setCustomAuthorityProvenanceJson(JSON.stringify({
-      authority_history: [{
-        event_id: "healthcare-d2c-001-t0-authority-established",
-        event_type: "authority_established",
-        effective_at: "2026-08-27T16:00:00Z",
-        actor: {
-          id: "fixture-healthcare-authority",
-          name: "Frozen healthcare scenario authority",
-          role: "Authorized decision owner",
-          institution: "Synthetic falsification fixture"
+      authority_history: [
+        {
+          event_id: "healthcare-d2c-001-t0-authority-issued",
+          event_type: "authority_issued",
+          effective_at: "2026-08-27T16:00:00Z",
+          actor: {
+            id: "fixture-healthcare-institution",
+            name: "Synthetic healthcare institution",
+            role: "Authority issuer",
+            institution: "Synthetic falsification fixture"
+          },
+          source_ref: "fixture://healthcare-d2c-001/v0.1#authority",
+          evidence_refs: ["fixture://healthcare-d2c-001/v0.1#authority"]
         },
-        source_ref: "fixture://healthcare-d2c-001/v0.1#authority",
-        evidence_refs: ["fixture://healthcare-d2c-001/v0.1#authority"]
-      }],
+        {
+          event_id: "healthcare-d2c-001-t0-authority-established",
+          event_type: "authority_established",
+          effective_at: "2026-08-27T16:00:00Z",
+          actor: {
+            id: "fixture-healthcare-authority",
+            name: "Frozen healthcare scenario authority",
+            role: "Authorized decision owner",
+            institution: "Synthetic falsification fixture"
+          },
+          source_ref: "fixture://healthcare-d2c-001/v0.1#authority",
+          evidence_refs: ["fixture://healthcare-d2c-001/v0.1#authority"]
+        }
+      ],
       original_authority: {
         actor: {
           id: "fixture-healthcare-authority",
@@ -2045,6 +2060,9 @@ export default function Home() {
           institution: "Synthetic falsification fixture"
         },
         authority_source_ref: "fixture://healthcare-d2c-001/v0.1#authority",
+        issuer: "fixture-healthcare-institution",
+        last_verified_at: "2026-08-27T17:15:00Z",
+        last_revocation_check_at: "2026-08-27T17:15:00Z",
         scope: ["synthetic-patient-001", "patient-specific-discharge-communication", "patient-portal"],
         evidence_refs: ["fixture://healthcare-d2c-001/v0.1#authority"]
       }
