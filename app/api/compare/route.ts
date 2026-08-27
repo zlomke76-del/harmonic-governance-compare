@@ -43,7 +43,8 @@ const RequestSchema = z.object({
   }).optional(),
   downstreamAccountability: z.record(z.string(), z.unknown()).optional(),
   obligationWitness: z.record(z.string(), z.unknown()).optional(),
-  stateProvenance: z.record(z.string(), z.unknown()).optional()
+  stateProvenance: z.record(z.string(), z.unknown()).optional(),
+  allowHarnessInference: z.boolean().default(false)
 });
 
 const laneConfig: Record<LaneName, { title: string; system: string }> = {
@@ -109,7 +110,8 @@ async function runUnifiedGovernedLanes(params: {
     requestedAction: params.requestedAction,
     downstreamAccountability: params.downstreamAccountability,
     obligationWitness: params.obligationWitness,
-    stateProvenance: params.stateProvenance
+    stateProvenance: params.stateProvenance,
+    allowHarnessInference: params.allowHarnessInference
   });
 
   const latencyMs = Date.now() - started;
@@ -161,7 +163,8 @@ export async function POST(req: Request) {
         requestedAction: parsed.requestedAction as GovernanceRequestedAction | undefined,
         downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined,
         obligationWitness: parsed.obligationWitness as GovernanceObligationWitness | undefined,
-        stateProvenance: parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined
+        stateProvenance: parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined,
+        allowHarnessInference: parsed.allowHarnessInference
       })
     ]);
 
