@@ -23,7 +23,8 @@
     "test:v89": "node scripts/test-v89-explicit-fixture-evidence.cjs",
     "test:v91": "node scripts/test-v91-current-production-provenance.cjs",
     "test:v92-runtime-routing": "node scripts/test-v92-runtime-routing.cjs",
-    "test:v94-fixtures": "node scripts/test-v94-frozen-scenario-fixtures.cjs"
+    "test:v94-fixtures": "node scripts/test-v94-frozen-scenario-fixtures.cjs",
+    "test:v95-contract": "node scripts/test-v95-native-runtime-contract.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
