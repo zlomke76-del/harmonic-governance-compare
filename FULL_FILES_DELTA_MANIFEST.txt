@@ -1,0 +1,8 @@
+Harmonic Test Harness V95 witness-label consistency delta
+
+Full replacement file:
+- lib/governance-adapter.ts
+
+Purpose:
+- Remove stale hard-coded adapter_build labels (v86/v75) from request witnesses and use HARNESS_METHODOLOGY_VERSION consistently.
+- No governance facts or outcomes are inferred or changed by this delta.
