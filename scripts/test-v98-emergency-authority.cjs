@@ -1,0 +1,11 @@
+const fs=require("fs");
+const page=fs.readFileSync("app/page.tsx","utf8");
+const assert=(v,m)=>{if(!v)throw new Error(m);};
+const s=page.indexOf('id: "emergency-continuity-life-safety"');
+const e=page.indexOf('\n    {',s+20);
+const b=page.slice(s,e);
+assert(b.includes("authorityProvenance:"),"authority provenance missing");
+assert(b.includes('event_type: "emergency_authority_activated"'),"activation event missing");
+assert(b.includes('status: "active"'),"active emergency authority missing");
+assert(b.includes("operator_review_confirmed: true"),"review confirmation missing");
+console.log("V98 emergency authority fixture: PASS");
