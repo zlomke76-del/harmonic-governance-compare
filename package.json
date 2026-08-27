@@ -29,7 +29,8 @@
     "test:v97-nda-authority": "node scripts/test-v97-nda-authority-fixture.cjs",
     "test:v97.1-type": "node scripts/test-v97_1-reversibility-type.cjs",
     "test:v98-emergency-authority": "node scripts/test-v98-emergency-authority.cjs",
-    "test:v99-consequence-record": "node scripts/test-v99-consequence-engineering-record.cjs"
+    "test:v99-consequence-record": "node scripts/test-v99-consequence-engineering-record.cjs",
+    "test:v100-v42-contract": "node scripts/test-v100-v42-contract.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
