@@ -1103,7 +1103,8 @@ function asGovernanceContinuityFacts(value: unknown): GovernanceContinuityFacts 
     emergency_continuity_defined: boolOrNull(record.emergency_continuity_defined),
     explicit_emergency_activation: boolOrNull(record.explicit_emergency_activation),
     emergency_authority_available: boolOrNull(record.emergency_authority_available),
-    emergency_authority: stringOrNull(record.emergency_authority)
+    emergency_authority: stringOrNull(record.emergency_authority),
+    operator_review_confirmed: boolOrNull(record.operator_review_confirmed)
   };
 }
 

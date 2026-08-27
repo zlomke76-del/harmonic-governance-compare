@@ -5,6 +5,7 @@ export type GovernanceContinuityFacts = {
   explicit_emergency_activation?: boolean | null;
   emergency_authority_available?: boolean | null;
   emergency_authority?: string | null;
+  operator_review_confirmed?: boolean | null;
 };
 
 
