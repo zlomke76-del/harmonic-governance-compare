@@ -11,6 +11,8 @@ import type {
   GovernanceAuthorityProvenance,
   GovernanceDownstreamAccountability,
   GovernanceRequestedAction,
+  GovernanceRealityWitness,
+  GovernanceConsequenceProfile,
   GovernanceObligationWitness,
   GovernanceStateProvenanceWitness,
   LaneName,
@@ -41,6 +43,8 @@ const RequestSchema = z.object({
     type: z.string().min(1).max(200),
     scope: z.array(z.string().min(1).max(300)).min(1)
   }).optional(),
+  realityWitness: z.record(z.string(), z.unknown()).optional(),
+  consequenceProfile: z.record(z.string(), z.unknown()).optional(),
   downstreamAccountability: z.record(z.string(), z.unknown()).optional(),
   obligationWitness: z.record(z.string(), z.unknown()).optional(),
   stateProvenance: z.record(z.string(), z.unknown()).optional(),
@@ -84,6 +88,17 @@ async function projectRawLane(params: {
   };
 }
 
+
+function governedDisplayResponse(evaluation: import("../../../lib/types").GovernanceEvaluation, fallback: string): string {
+  const raw = evaluation.raw && typeof evaluation.raw === "object"
+    ? evaluation.raw as Record<string, unknown>
+    : null;
+  const governed = raw && typeof raw.governed_response === "string"
+    ? raw.governed_response.trim()
+    : "";
+  return governed || fallback;
+}
+
 async function runUnifiedGovernedLanes(params: {
   runtimeTarget: RuntimeTarget;
   prompt: string;
@@ -92,6 +107,8 @@ async function runUnifiedGovernedLanes(params: {
   governanceFacts?: import("../../../lib/types").GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
+  realityWitness?: GovernanceRealityWitness;
+  consequenceProfile?: GovernanceConsequenceProfile;
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
@@ -109,6 +126,8 @@ async function runUnifiedGovernedLanes(params: {
     governanceFacts: params.governanceFacts,
     authorityProvenance: params.authorityProvenance,
     requestedAction: params.requestedAction,
+    realityWitness: params.realityWitness,
+    consequenceProfile: params.consequenceProfile,
     downstreamAccountability: params.downstreamAccountability,
     obligationWitness: params.obligationWitness,
     stateProvenance: params.stateProvenance,
@@ -127,7 +146,7 @@ async function runUnifiedGovernedLanes(params: {
     {
       lane: "harmonic_governance",
       title: laneConfig.harmonic_governance.title,
-      response: params.response,
+      response: governedDisplayResponse(unified.harmonic_governance, params.response),
       evaluation: unified.harmonic_governance,
       latencyMs
     }
@@ -162,6 +181,8 @@ export async function POST(req: Request) {
         governanceFacts: parsed.governanceFacts,
         authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
         requestedAction: parsed.requestedAction as GovernanceRequestedAction | undefined,
+        realityWitness: parsed.realityWitness as GovernanceRealityWitness | undefined,
+        consequenceProfile: parsed.consequenceProfile as GovernanceConsequenceProfile | undefined,
         downstreamAccountability: parsed.downstreamAccountability as GovernanceDownstreamAccountability | undefined,
         obligationWitness: parsed.obligationWitness as GovernanceObligationWitness | undefined,
         stateProvenance: parsed.stateProvenance as GovernanceStateProvenanceWitness | undefined,
