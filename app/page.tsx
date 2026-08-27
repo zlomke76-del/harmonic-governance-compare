@@ -71,7 +71,7 @@ const CUSTOM_SCENARIO_ID = "custom";
 const PATTERN_ALL = "All constitutional patterns";
 
 const RUNTIME_OPTIONS: Array<{ id: RuntimeTarget; label: string; note: string }> = [
-  { id: "v4", label: "Current V4", note: "Current production constitutional runtime" },
+  { id: "v4", label: "Current Production", note: "Live Harmonic constitutional runtime" },
   { id: "v2", label: "Frozen V2 · 6a3a89f", note: "TA-14 frozen implementation boundary" }
 ];
 
@@ -1363,6 +1363,14 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
       value: `V${String(raw.runtime_version || transaction.transaction_model_version || "Not returned").replace(/^v/i, "")}`
     },
     {
+      label: "Runtime Build",
+      value: getLiveRuntimeBuild(lane?.evaluation.raw)
+    },
+    {
+      label: "Consequence Boundary",
+      value: getConsequenceBoundaryVersion(lane?.evaluation.raw)
+    },
+    {
       label: "Governance Pack",
       value: governancePackSemver(raw.version || raw.governance_pack_version || raw.package_version)
     },
@@ -1430,7 +1438,7 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
       scenario: result.scenario,
       model: result.model,
       generatedAt: result.generatedAt,
-      runtimeLabel: result.runtimeLabel || "Current V4"
+      runtimeLabel: result.runtimeLabel || "Current Production"
     },
     lane: lane ? {
       lane: lane.lane,
@@ -1463,6 +1471,61 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
       {lane?.evaluation.raw ? <pre>{JSON.stringify(lane.evaluation.raw, null, 2)}</pre> : null}
     </details>
   );
+}
+
+
+function getLiveRuntimeBuild(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "Not returned";
+  const root = raw as Record<string, unknown>;
+  const governance = root.governance && typeof root.governance === "object"
+    ? root.governance as Record<string, unknown>
+    : root;
+  const explicitBuild =
+    typeof governance.runtime_build === "string"
+      ? governance.runtime_build
+      : typeof root.runtime_build === "string"
+        ? root.runtime_build
+        : null;
+  if (explicitBuild) return explicitBuild;
+
+  const primitiveResults =
+    governance.primitive_results && typeof governance.primitive_results === "object"
+      ? governance.primitive_results as Record<string, unknown>
+      : root.primitive_results && typeof root.primitive_results === "object"
+        ? root.primitive_results as Record<string, unknown>
+        : null;
+  const consequence =
+    primitiveResults?.consequence_boundary && typeof primitiveResults.consequence_boundary === "object"
+      ? primitiveResults.consequence_boundary as Record<string, unknown>
+      : primitiveResults?.consequence && typeof primitiveResults.consequence === "object"
+        ? primitiveResults.consequence as Record<string, unknown>
+        : null;
+  return consequence && typeof consequence.version === "string"
+    ? consequence.version
+    : "Not returned";
+}
+
+function getConsequenceBoundaryVersion(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "Not returned";
+  const root = raw as Record<string, unknown>;
+  const governance = root.governance && typeof root.governance === "object"
+    ? root.governance as Record<string, unknown>
+    : root;
+  const primitiveResults =
+    governance.primitive_results && typeof governance.primitive_results === "object"
+      ? governance.primitive_results as Record<string, unknown>
+      : root.primitive_results && typeof root.primitive_results === "object"
+        ? root.primitive_results as Record<string, unknown>
+        : null;
+  const consequence =
+    primitiveResults?.consequence_boundary && typeof primitiveResults.consequence_boundary === "object"
+      ? primitiveResults.consequence_boundary as Record<string, unknown>
+      : primitiveResults?.consequence && typeof primitiveResults.consequence === "object"
+        ? primitiveResults.consequence as Record<string, unknown>
+        : null;
+  return consequence && typeof consequence.version === "string"
+    ? consequence.version
+    : "Not returned";
 }
 
 function executionTarget(result: CompareResponse): string {
@@ -2086,7 +2149,7 @@ export default function Home() {
           ) : result ? (
             <>
               <div className="meta">
-                <span>Runtime: {result.runtimeLabel || "Current V4"}</span>
+                <span>Runtime: {result.runtimeLabel || "Current Production"}</span>
                 <span>Scenario: {result.scenario}</span>
                 <span>{new Date(result.generatedAt).toLocaleString()}</span>
               </div>
