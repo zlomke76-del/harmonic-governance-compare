@@ -26,7 +26,8 @@
     "test:v94-fixtures": "node scripts/test-v94-frozen-scenario-fixtures.cjs",
     "test:v95b-shape": "node scripts/test-v95b-request-witness-shape.cjs",
     "test:v96-substation-fixture": "node scripts/test-v96-substation-fixture.cjs",
-    "test:v97-nda-authority": "node scripts/test-v97-nda-authority-fixture.cjs"
+    "test:v97-nda-authority": "node scripts/test-v97-nda-authority-fixture.cjs",
+    "test:v97.1-type": "node scripts/test-v97_1-reversibility-type.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
