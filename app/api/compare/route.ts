@@ -6,7 +6,17 @@ import {
   HARMONIC_ONLY_SYSTEM_PROMPT,
   RAW_SYSTEM_PROMPT
 } from "../../../lib/prompts";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceObligationWitness, GovernanceStateProvenanceWitness, LaneName, LaneResult, RuntimeTarget } from "../../../lib/types";
+import type {
+  CompareResponse,
+  GovernanceAuthorityProvenance,
+  GovernanceDownstreamAccountability,
+  GovernanceRequestedAction,
+  GovernanceObligationWitness,
+  GovernanceStateProvenanceWitness,
+  LaneName,
+  LaneResult,
+  RuntimeTarget
+} from "../../../lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +37,10 @@ const RequestSchema = z.object({
     emergency_authority: z.string().max(200).nullable().optional()
   }).optional(),
   authorityProvenance: z.record(z.string(), z.unknown()).optional(),
-  requestedAction: z.object({ type: z.string().min(1).max(200), scope: z.array(z.string().min(1).max(300)).min(1) }).optional(),
+  requestedAction: z.object({
+    type: z.string().min(1).max(200),
+    scope: z.array(z.string().min(1).max(300)).min(1)
+  }).optional(),
   downstreamAccountability: z.record(z.string(), z.unknown()).optional(),
   obligationWitness: z.record(z.string(), z.unknown()).optional(),
   stateProvenance: z.record(z.string(), z.unknown()).optional()
@@ -48,35 +61,34 @@ const laneConfig: Record<LaneName, { title: string; system: string }> = {
   }
 };
 
-async function runRawLane(params: {
+async function projectRawLane(params: {
   prompt: string;
   scenario: string;
-  temperature: number;
-  model?: string;
+  response: string;
 }): Promise<LaneResult> {
   const started = Date.now();
-  const response = await callSameLlm({
-    system: laneConfig.raw.system,
-    user: params.prompt,
-    temperature: params.temperature,
-    model: params.model
-  });
   const evaluation = await evaluateGovernance({
     lane: "raw",
     prompt: params.prompt,
-    response,
+    response: params.response,
     scenario: params.scenario
   });
-  return { lane: "raw", title: laneConfig.raw.title, response, evaluation, latencyMs: Date.now() - started };
+
+  return {
+    lane: "raw",
+    title: laneConfig.raw.title,
+    response: params.response,
+    evaluation,
+    latencyMs: Date.now() - started
+  };
 }
 
 async function runUnifiedGovernedLanes(params: {
   runtimeTarget: RuntimeTarget;
   prompt: string;
   scenario: string;
-  temperature: number;
-  model?: string;
-  governanceFacts?: import('../../../lib/types').GovernanceContinuityFacts;
+  response: string;
+  governanceFacts?: import("../../../lib/types").GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
   downstreamAccountability?: GovernanceDownstreamAccountability;
@@ -85,20 +97,12 @@ async function runUnifiedGovernedLanes(params: {
 }): Promise<LaneResult[]> {
   const started = Date.now();
 
-  // One candidate model response is evaluated once by Harmonic.
-  // Both comparison panels are projections of the same runtime transaction:
-  // Harmonic = stabilization layer; Harmonic+ = constitutional layer.
-  const response = await callSameLlm({
-    system: HARMONIC_ONLY_SYSTEM_PROMPT,
-    user: params.prompt,
-    temperature: params.temperature,
-    model: params.model
-  });
-
+  // V86: Causal comparison uses one candidate response.
+  // Raw, Harmonic, and Harmonic+ all display/evaluate the exact same candidate.
   const unified = await evaluateUnifiedGovernance({
     runtimeTarget: params.runtimeTarget,
     prompt: params.prompt,
-    response,
+    response: params.response,
     scenario: params.scenario,
     governanceFacts: params.governanceFacts,
     authorityProvenance: params.authorityProvenance,
@@ -113,14 +117,14 @@ async function runUnifiedGovernedLanes(params: {
     {
       lane: "harmonic",
       title: laneConfig.harmonic.title,
-      response,
+      response: params.response,
       evaluation: unified.harmonic,
       latencyMs
     },
     {
       lane: "harmonic_governance",
       title: laneConfig.harmonic_governance.title,
-      response,
+      response: params.response,
       evaluation: unified.harmonic_governance,
       latencyMs
     }
@@ -131,19 +135,27 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const parsed = RequestSchema.parse(body);
+
+    // Generate exactly one candidate. Governance evaluates this candidate; it does
+    // not trigger a second model generation that could confound the comparison.
+    const candidate = await callSameLlm({
+      system: RAW_SYSTEM_PROMPT,
+      user: parsed.prompt,
+      temperature: parsed.temperature,
+      model: parsed.model
+    });
+
     const [raw, governed] = await Promise.all([
-      runRawLane({
+      projectRawLane({
         prompt: parsed.prompt,
         scenario: parsed.scenario,
-        temperature: parsed.temperature,
-        model: parsed.model
+        response: candidate
       }),
       runUnifiedGovernedLanes({
         runtimeTarget: parsed.runtimeTarget,
         prompt: parsed.prompt,
         scenario: parsed.scenario,
-        temperature: parsed.temperature,
-        model: parsed.model,
+        response: candidate,
         governanceFacts: parsed.governanceFacts,
         authorityProvenance: parsed.authorityProvenance as GovernanceAuthorityProvenance | undefined,
         requestedAction: parsed.requestedAction as GovernanceRequestedAction | undefined,
