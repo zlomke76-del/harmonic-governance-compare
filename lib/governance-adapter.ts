@@ -19,7 +19,7 @@ import type {
 
 const DEFAULT_HARMONIC_API_URL = "https://www.solace-harmonic.com/api/evaluate";
 
-const HARNESS_METHODOLOGY_VERSION = "v87-falsification-integrity-2026-08-26";
+const HARNESS_METHODOLOGY_VERSION = "v94-frozen-structured-fixtures-2026-08-27";
 const HARNESS_METHODOLOGY_DESCRIPTOR = {
   packet_construction: "explicit-witness-first",
   model_response_role: "proposed_response_only",
