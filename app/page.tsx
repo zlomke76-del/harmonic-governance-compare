@@ -1648,7 +1648,8 @@ export default function Home() {
           obligationWitness:
             scenario === CUSTOM_SCENARIO_ID ? customObligationWitness : undefined,
           stateProvenance:
-            scenario === CUSTOM_SCENARIO_ID ? customStateProvenance : undefined
+            scenario === CUSTOM_SCENARIO_ID ? customStateProvenance : undefined,
+          allowHarnessInference: scenario !== CUSTOM_SCENARIO_ID
         })
       });
       const json = await res.json();
