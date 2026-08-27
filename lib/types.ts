@@ -180,6 +180,10 @@ export interface LaneResult {
 export interface CompareResponse {
   runtimeTarget?: RuntimeTarget;
   runtimeLabel?: string;
+  harmonicRelease?: string;
+  governanceContractVersion?: string;
+  visibilitySchemaVersion?: string;
+  releaseClassification?: "GOVERNANCE_VISIBILITY_UPGRADE";
   prompt: string;
   scenario: string;
   model: string;
