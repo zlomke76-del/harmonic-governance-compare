@@ -7,6 +7,8 @@ import type {
   GovernanceContinuityFacts,
   GovernanceDownstreamAccountability,
   GovernanceRequestedAction,
+  GovernanceRealityWitness,
+  GovernanceConsequenceProfile,
   GovernanceObligationWitness,
   GovernanceStateProvenanceWitness,
   RuntimeTarget,
