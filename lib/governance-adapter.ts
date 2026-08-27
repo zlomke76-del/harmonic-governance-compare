@@ -934,7 +934,7 @@ function buildGovernancePackPayload(params: {
 
   const derivedFields: string[] = [];
   if (!effectiveRequestedAction) derivedFields.push("requested_action_default_unspecified");
-  if (allowHarnessInference && !params.consequenceProfile && !params.requestedAction && !fixtureWitness?.requestedAction) derivedFields.push("consequence_profile");
+  // Exploratory classification is advisory-only and is not promoted into the canonical governance packet.
   if (fixtureWitness) derivedFields.push(...fixtureWitness.translatedFields);
 
   const packet: Record<string, unknown> = {
@@ -983,7 +983,7 @@ function buildGovernancePackPayload(params: {
             source_class: params.consequenceProfile.source_class || "explicit_structured_witness"
           }
         }
-      : ((context || effectiveRequestedAction) ? {
+      : (effectiveRequestedAction ? {
           consequence_profile: {
             ...(consequenceLevel ? { level: consequenceLevel } : {}),
             execution_surface: requestedAction.type,
@@ -1000,10 +1000,7 @@ function buildGovernancePackPayload(params: {
               should_block_execution: context.shouldBlockExecution,
               should_escalate: context.shouldEscalate
             } : {}),
-            source_class:
-              effectiveRequestedAction
-                ? "structured_requested_action"
-                : "harness_exploratory_classification"
+            source_class: "structured_requested_action"
           }
         } : {})),
 
@@ -1011,6 +1008,8 @@ function buildGovernancePackPayload(params: {
       execution_surface_classifier: context ? {
         ...context,
         source_class: "harness_exploratory_classification",
+        epistemic_status: "INFERRED_ADVISORY_ONLY",
+        governance_material: false,
         model_response_consulted: false
       } : null,
       ...(fixtureWitness
