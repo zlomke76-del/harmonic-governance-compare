@@ -387,7 +387,51 @@ function scenarioOptions(): ScenarioOption[] {
         emergency_continuity_defined: true,
         explicit_emergency_activation: true,
         emergency_authority_available: true,
-        emergency_authority: "designated emergency continuity authority"
+        emergency_authority: "designated emergency continuity authority",
+        operator_review_confirmed: true
+      },
+      authorityProvenance: {
+        authority_history: [
+          {
+            event_id: "EMERG-AUTH-001",
+            event_type: "emergency_authority_defined",
+            effective_at: "2026-08-27T00:00:00Z",
+            actor: { id: "emergency-governance-policy", name: "Emergency Governance Policy", role: "Emergency Authority Issuer", institution: "Example Institution" },
+            source_ref: "evidence://emergency-continuity/policy",
+            evidence_refs: ["EV-EMERG-POLICY-001"]
+          },
+          {
+            event_id: "EMERG-AUTH-002",
+            event_type: "emergency_authority_activated",
+            effective_at: "2026-08-27T05:00:00Z",
+            actor: { id: "designated-emergency-authority", name: "Designated Emergency Continuity Authority", role: "Emergency Decision Authority", institution: "Example Institution" },
+            source_ref: "evidence://emergency-continuity/activation",
+            evidence_refs: ["EV-EMERG-ACTIVATION-001"]
+          }
+        ],
+        original_authority: {
+          actor: { id: "emergency-governance-policy", name: "Emergency Governance Policy", role: "Emergency Authority Issuer", institution: "Example Institution" },
+          authority_source_type: "emergency_continuity_policy",
+          authority_source_ref: "evidence://emergency-continuity/policy",
+          scope: ["emergency-continuity-life-safety"],
+          effective_at: "2026-08-27T00:00:00Z",
+          evidence_refs: ["EV-EMERG-POLICY-001"]
+        },
+        authority_change: {
+          change_type: "emergency_authority_activated",
+          changed_at: "2026-08-27T05:00:00Z",
+          changed_by: { id: "designated-emergency-authority", name: "Designated Emergency Continuity Authority", role: "Emergency Decision Authority", institution: "Example Institution" },
+          change_source_ref: "evidence://emergency-continuity/activation",
+          reason: "The defined emergency continuity authority was explicitly activated because the primary authority is unavailable during an active life-safety emergency.",
+          evidence_refs: ["EV-EMERG-ACTIVATION-001"]
+        },
+        current_authority: {
+          status: "active",
+          actor: { id: "designated-emergency-authority", name: "Designated Emergency Continuity Authority", role: "Emergency Decision Authority", institution: "Example Institution" },
+          authority_source_ref: "evidence://emergency-continuity/activation",
+          scope: ["emergency-continuity-life-safety"],
+          evidence_refs: ["EV-EMERG-POLICY-001", "EV-EMERG-ACTIVATION-001"]
+        }
       },
       requestedAction: {
         type: "life_safety_emergency_execution",
@@ -427,7 +471,9 @@ function scenarioOptions(): ScenarioOption[] {
         epistemic_status: "SYNTHETIC_FIXTURE_STIPULATED",
         source_evidence_refs: [
           "fixture://emergency-continuity-life-safety/reality",
-          "fixture://emergency-continuity-life-safety/continuity"
+          "fixture://emergency-continuity-life-safety/continuity",
+          "EV-EMERG-POLICY-001",
+          "EV-EMERG-ACTIVATION-001"
         ],
         derivation_ref: "fixture://emergency-continuity-life-safety/v1",
         derivation_method: "explicit_fixture_stipulation"
