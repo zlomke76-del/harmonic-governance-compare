@@ -96,17 +96,28 @@ function asArray(value: unknown): unknown[] {
 
 function unifiedEndpoint(): { url?: string; key?: string } {
   return {
-    // The unified comparison must always call the single customer-facing endpoint.
-    // Do not fall back to the retired direct Governance Pack URL.
+    // Runtime 4.1 primary always resolves through the live single-call endpoint.
     url:
       process.env.HARMONIC_API_URL ||
       process.env.HARMONIC_ONLY_API_URL ||
       DEFAULT_HARMONIC_API_URL,
 
-    // This harness demonstrates Harmonic + Harmonic+ in one transaction.
-    // Prefer the governance-entitled credential so /api/evaluate can activate
-    // the constitutional layer and persist its determination + receipt.
     key:
+      process.env.HARMONIC_GOVERNANCE_API_KEY ||
+      process.env.HARMONIC_API_KEY ||
+      process.env.HARMONIC_ONLY_API_KEY
+  };
+}
+
+function v40Endpoint(): { url?: string; key?: string } {
+  const explicit = process.env.HARMONIC_V40_API_URL;
+  const base = process.env.HARMONIC_V40_API_BASE_URL?.replace(/\/+$/, "");
+  return {
+    // V4.0 is historical. Never silently route it to the current 4.1 endpoint.
+    // Configure a frozen V4.0 deployment URL when historical comparison is required.
+    url: explicit || (base ? `${base}/api/evaluate` : undefined),
+    key:
+      process.env.HARMONIC_V40_API_KEY ||
       process.env.HARMONIC_GOVERNANCE_API_KEY ||
       process.env.HARMONIC_API_KEY ||
       process.env.HARMONIC_ONLY_API_KEY
@@ -1749,13 +1760,19 @@ export async function evaluateUnifiedGovernance(params: {
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   if (params.runtimeTarget === "v2") return evaluateFrozenV2(params);
 
-  const { url, key } = unifiedEndpoint();
+  const endpoint = params.runtimeTarget === "v4" ? v40Endpoint() : unifiedEndpoint();
+  const { url, key } = endpoint;
   if (!url || !key) {
+    const isFrozenV40 = params.runtimeTarget === "v4";
     const unavailable: GovernanceEvaluation = {
       available: false,
       decision: "UNKNOWN",
-      summary: "NOT_EVALUATED: no unified Harmonic API key is configured.",
-      flags: ["not-evaluated", "endpoint-not-configured"]
+      summary: isFrozenV40
+        ? "NOT_EVALUATED: Runtime 4.0 is historical and no frozen V4.0 endpoint is configured."
+        : "NOT_EVALUATED: no unified Harmonic API key is configured.",
+      flags: isFrozenV40
+        ? ["not-evaluated", "frozen-v4-endpoint-not-configured"]
+        : ["not-evaluated", "endpoint-not-configured"]
     };
     return { harmonic: unavailable, harmonic_governance: unavailable };
   }
