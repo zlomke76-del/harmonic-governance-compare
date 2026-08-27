@@ -1851,6 +1851,14 @@ export function projectExactPacketReplay(params: {
       canonical_bytes: params.outboundBytes || Buffer.byteLength(stableCanonicalize(params.packet), "utf8"),
       export: params.packet
     },
+    fixture_evidence: {
+      reality_supplied: false,
+      reality_source: "exact_packet_replay",
+      declared_claim_count: 0,
+      observed_signal_count: 0,
+      consequence_profile_supplied: false,
+      consequence_profile_source: "exact_packet_replay"
+    },
     model_response_binding: {
       role: "exact_packet_replay",
       used_as_observed_reality: false,
