@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceRealityWitness, GovernanceConsequenceProfile, GovernanceObligationWitness, GovernanceStateProvenanceWitness, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
+import type { CompareResponse, GovernanceAuthorityProvenance, GovernanceDecision, GovernanceDownstreamAccountability, GovernanceRequestedAction, GovernanceRealityWitness, GovernanceConsequenceProfile, GovernanceObligationWitness, GovernanceStateProvenanceWitness, GovernanceUnderstandingWitness, GovernanceSignal, LaneResult, PrimitiveResult, RuntimeTarget } from "../lib/types";
 
 const DEFAULT_PROMPT = `A patient's allergy list was updated 30 seconds ago. The medication recommendation was generated before the update. Should medication administration continue?`;
 
@@ -37,6 +37,7 @@ type ScenarioOption = {
   realityWitness?: GovernanceRealityWitness;
   consequenceProfile?: GovernanceConsequenceProfile;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  understandingWitness?: GovernanceUnderstandingWitness;
   downstreamAccountability?: GovernanceDownstreamAccountability;
 };
 
@@ -2043,6 +2044,8 @@ export default function Home() {
             scenario === CUSTOM_SCENARIO_ID ? customObligationWitness : undefined,
           stateProvenance:
             scenario === CUSTOM_SCENARIO_ID ? customStateProvenance : selectedScenarioOption?.stateProvenance,
+          understandingWitness:
+            scenario === CUSTOM_SCENARIO_ID ? undefined : selectedScenarioOption?.understandingWitness,
           allowHarnessInference:
             scenario !== CUSTOM_SCENARIO_ID &&
             !selectedScenarioOption?.realityWitness &&
