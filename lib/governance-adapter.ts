@@ -863,6 +863,8 @@ function buildGovernancePackPayload(params: {
   governanceFacts?: GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
+  realityWitness?: GovernanceRealityWitness;
+  consequenceProfile?: GovernanceConsequenceProfile;
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
@@ -881,7 +883,7 @@ function buildGovernancePackPayload(params: {
   // Natural-language classification is explicitly opt-in. Custom/adversarial tests
   // default to structured witnesses only so the harness does not become an
   // epistemic co-author of the governance packet.
-  const context = allowHarnessInference
+  const context = allowHarnessInference && !params.consequenceProfile
     ? classifyExecutionContext({
         prompt: params.prompt,
         scenario: params.scenario,
@@ -903,6 +905,8 @@ function buildGovernancePackPayload(params: {
     Boolean(params.governanceFacts) ||
     Boolean(params.authorityProvenance) ||
     Boolean(params.requestedAction) ||
+    Boolean(params.realityWitness) ||
+    Boolean(params.consequenceProfile) ||
     Boolean(params.downstreamAccountability) ||
     Boolean(params.obligationWitness) ||
     Boolean(params.stateProvenance);
@@ -917,7 +921,7 @@ function buildGovernancePackPayload(params: {
 
   const derivedFields: string[] = [];
   if (!effectiveRequestedAction) derivedFields.push("requested_action_default_unspecified");
-  if (allowHarnessInference && !params.requestedAction && !fixtureWitness?.requestedAction) derivedFields.push("consequence_profile");
+  if (allowHarnessInference && !params.consequenceProfile && !params.requestedAction && !fixtureWitness?.requestedAction) derivedFields.push("consequence_profile");
   if (fixtureWitness) derivedFields.push(...fixtureWitness.translatedFields);
 
   const packet: Record<string, unknown> = {
@@ -943,6 +947,8 @@ function buildGovernancePackPayload(params: {
       model_response_role: "proposed_response_only",
       model_response_used_as_observed_reality: false,
       requested_action_explicit: Boolean(params.requestedAction),
+      reality_witness_explicit: Boolean(params.realityWitness),
+      consequence_profile_explicit: Boolean(params.consequenceProfile),
       authority_provenance_explicit: Boolean(params.authorityProvenance),
       obligation_witness_explicit: Boolean(params.obligationWitness),
       downstream_accountability_explicit: Boolean(params.downstreamAccountability),
@@ -957,29 +963,36 @@ function buildGovernancePackPayload(params: {
 
     requested_action: requestedAction,
 
-    ...((context || effectiveRequestedAction) ? {
-      consequence_profile: {
-        ...(consequenceLevel ? { level: consequenceLevel } : {}),
-        execution_surface: requestedAction.type,
-        ...(context ? {
-          reversibility:
-            requestedAction.type === "financial_execution"
-              ? "difficult_to_reverse"
-              : context.reversibility,
-          execution_surface_reason: context.reason,
-          requires_operator_review:
-            requestedAction.type === "financial_execution"
-              ? true
-              : context.requiresOperatorReview,
-          should_block_execution: context.shouldBlockExecution,
-          should_escalate: context.shouldEscalate
-        } : {}),
-        source_class:
-          effectiveRequestedAction
-            ? "structured_requested_action"
-            : "harness_exploratory_classification"
-      }
-    } : {}),
+    ...(params.consequenceProfile
+      ? {
+          consequence_profile: {
+            ...params.consequenceProfile,
+            source_class: params.consequenceProfile.source_class || "explicit_structured_witness"
+          }
+        }
+      : ((context || effectiveRequestedAction) ? {
+          consequence_profile: {
+            ...(consequenceLevel ? { level: consequenceLevel } : {}),
+            execution_surface: requestedAction.type,
+            ...(context ? {
+              reversibility:
+                requestedAction.type === "financial_execution"
+                  ? "difficult_to_reverse"
+                  : context.reversibility,
+              execution_surface_reason: context.reason,
+              requires_operator_review:
+                requestedAction.type === "financial_execution"
+                  ? true
+                  : context.requiresOperatorReview,
+              should_block_execution: context.shouldBlockExecution,
+              should_escalate: context.shouldEscalate
+            } : {}),
+            source_class:
+              effectiveRequestedAction
+                ? "structured_requested_action"
+                : "harness_exploratory_classification"
+          }
+        } : {})),
 
     safeguards: {
       execution_surface_classifier: context ? {
@@ -1005,6 +1018,18 @@ function buildGovernancePackPayload(params: {
   // Absence remains absence; the harness does not manufacture reality,
   // freshness, authority checks, revocation checks, or obligation status.
   if (params.governanceFacts) packet.continuity = { ...params.governanceFacts };
+  if (params.realityWitness) {
+    packet.declared_reality = {
+      ...params.realityWitness.declared_reality,
+      source_class: "synthetic_test_fixture",
+      fixture_source: params.realityWitness.fixture_source
+    };
+    packet.observed_reality = {
+      ...params.realityWitness.observed_reality,
+      source_class: "synthetic_test_fixture",
+      fixture_source: params.realityWitness.fixture_source
+    };
+  }
   if (effectiveAuthorityProvenance) packet.authority_provenance = effectiveAuthorityProvenance;
   if (params.obligationWitness) packet.obligation_witness = params.obligationWitness;
   if (effectiveStateProvenance) packet.present_state_provenance = effectiveStateProvenance;
@@ -1077,6 +1102,9 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const downstreamAccountability = asRecord(packet.downstream_accountability);
   const obligationWitness = asRecord(packet.obligation_witness);
   const stateProvenance = asRecord(packet.present_state_provenance);
+  const declaredReality = asRecord(packet.declared_reality);
+  const observedReality = asRecord(packet.observed_reality);
+  const consequenceProfile = asRecord(packet.consequence_profile);
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
@@ -1100,6 +1128,14 @@ function buildGovernanceRequestWitness(payload: unknown) {
       canonical_bytes: Buffer.byteLength(stableCanonicalize(packet), "utf8"),
       export: packet
     },
+    fixture_evidence: {
+      reality_supplied: Boolean(declaredReality) || Boolean(observedReality),
+      reality_source: witnessMeta.reality_witness_explicit === true ? "explicit_synthetic_fixture" : "not_supplied",
+      declared_claim_count: Array.isArray(declaredReality?.current_state_claims) ? declaredReality.current_state_claims.length : 0,
+      observed_signal_count: Array.isArray(observedReality?.signals) ? observedReality.signals.length : 0,
+      consequence_profile_supplied: Boolean(consequenceProfile),
+      consequence_profile_source: witnessMeta.consequence_profile_explicit === true ? "explicit_structured_witness" : (typeof consequenceProfile?.source_class === "string" ? consequenceProfile.source_class : "not_supplied")
+    },
     model_response_binding: {
       role: typeof witnessMeta.model_response_role === "string" ? witnessMeta.model_response_role : null,
       used_as_observed_reality: witnessMeta.model_response_used_as_observed_reality === true,
@@ -1111,14 +1147,15 @@ function buildGovernanceRequestWitness(payload: unknown) {
       fields: Array.isArray(witnessMeta.synthetic_fixture_fields) ? witnessMeta.synthetic_fixture_fields : []
     },
     requested_action: {
-      supplied: Boolean(requestedAction),
-      source: witnessMeta.requested_action_explicit === true
-        ? "explicit_structured_witness"
+      present_in_packet: Boolean(requestedAction),
+      caller_supplied: witnessMeta.requested_action_explicit === true,
+      provenance: witnessMeta.requested_action_explicit === true
+        ? "caller_supplied_structured_witness"
         : witnessMeta.synthetic_fixture_translated === true
           ? "synthetic_fixture_translation"
           : Boolean(requestedAction)
-            ? "derived_runtime_context"
-            : "not_supplied",
+            ? "harness_derived_placeholder"
+            : "absent",
       type: typeof requestedAction?.type === "string" ? requestedAction.type : null,
       scope: Array.isArray(requestedAction?.scope) ? requestedAction.scope : []
     },
@@ -1701,6 +1738,8 @@ export async function evaluateUnifiedGovernance(params: {
   governanceFacts?: GovernanceContinuityFacts;
   authorityProvenance?: GovernanceAuthorityProvenance;
   requestedAction?: GovernanceRequestedAction;
+  realityWitness?: GovernanceRealityWitness;
+  consequenceProfile?: GovernanceConsequenceProfile;
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;

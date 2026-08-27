@@ -77,6 +77,31 @@ export type GovernanceRequestedAction = {
   scope: string[];
 };
 
+export type GovernanceRealityWitness = {
+  declared_reality: {
+    current_state_claims: string[];
+    source?: string;
+  };
+  observed_reality: {
+    signals: Array<{
+      statement: string;
+      source?: string;
+      evidence_ref?: string;
+    }>;
+  };
+  fixture_source: string;
+};
+
+export type GovernanceConsequenceProfile = {
+  level: "low" | "medium" | "high" | "critical";
+  execution_surface: string;
+  reversibility: "reversible" | "partially_reversible" | "difficult_to_reverse" | "irreversible";
+  requires_operator_review?: boolean;
+  should_block_execution?: boolean;
+  should_escalate?: boolean;
+  source_class?: string;
+};
+
 export type GovernanceDownstreamAccountability = {
   enforcement_layer?: {
     system: string;
