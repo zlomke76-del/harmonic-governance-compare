@@ -1121,7 +1121,7 @@ function buildGovernanceRequestWitness(payload: unknown) {
   const witnessMeta = asRecord(packet.harness_witness_meta) || {};
 
   return {
-    adapter_build: "v86-methodology-hardening-2026-08-26",
+    adapter_build: HARNESS_METHODOLOGY_VERSION,
     packet_id: typeof packet.packet_id === "string" ? packet.packet_id : null,
     prompt_present: typeof packet.prompt === "string" && packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
@@ -1849,7 +1849,7 @@ export function projectExactPacketReplay(params: {
   // This mirrors the normal witness shape for UI compatibility, but is descriptive only.
   // It does not create or transform any field in the outbound replay packet.
   const requestWitness = {
-    adapter_build: "v75-exact-packet-replay-2026-08-14",
+    adapter_build: HARNESS_METHODOLOGY_VERSION,
     packet_id: packetId,
     prompt_present: typeof params.packet.prompt === "string" && params.packet.prompt.trim().length > 0,
     scenario_prompt_present: typeof params.packet.scenario_prompt === "string" && params.packet.scenario_prompt.trim().length > 0,
