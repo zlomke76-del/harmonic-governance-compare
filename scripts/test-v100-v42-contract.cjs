@@ -1,0 +1,15 @@
+const fs = require('fs');
+const assert = require('assert');
+const page = fs.readFileSync('app/page.tsx','utf8');
+const route = fs.readFileSync('app/api/compare/route.ts','utf8');
+const types = fs.readFileSync('lib/types.ts','utf8');
+assert(page.includes('Harmonic v4.2.0 · Frozen Primary'), 'v4.2.0 is not visibly labeled as frozen primary');
+assert(page.includes('Harmonic Governance Contract v${result.governanceContractVersion}'), 'engineering record does not expose governance contract');
+assert(page.includes('Contract: v{result.governanceContractVersion} · Visibility Schema v{result.visibilitySchemaVersion}'), 'execution decision metadata does not expose contract/schema');
+assert(route.includes('PRIMARY_HARMONIC_RELEASE = "v4.2.0"'), 'API release constant missing');
+assert(route.includes('PRIMARY_GOVERNANCE_CONTRACT = "4.2"'), 'API contract constant missing');
+assert(route.includes('PRIMARY_VISIBILITY_SCHEMA = "4.2"'), 'API visibility schema constant missing');
+assert(route.includes('GOVERNANCE_VISIBILITY_UPGRADE'), 'release classification missing');
+assert(types.includes('governanceContractVersion?: string;'), 'response contract field missing');
+assert(types.includes('visibilitySchemaVersion?: string;'), 'visibility schema field missing');
+console.log('V100 v4.2 contract visibility regression passed.');
