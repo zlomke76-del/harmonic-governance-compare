@@ -19,7 +19,8 @@
     "test:v76-synthetic-fixture-transport": "node scripts/test-v76-synthetic-fixture-transport.cjs",
     "test:v81-synthetic-fixture-transport": "node scripts/test-v81-synthetic-fixture-transport.cjs",
     "test:v86-methodology-hardening": "node scripts/test-v86-methodology-hardening.cjs",
-    "test:v87": "node scripts/test-v87-falsification-integrity.cjs"
+    "test:v87": "node scripts/test-v87-falsification-integrity.cjs",
+    "test:v89": "node scripts/test-v89-explicit-fixture-evidence.cjs"
   },
   "dependencies": {
     "next": "15.3.8",
