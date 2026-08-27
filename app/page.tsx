@@ -1955,9 +1955,24 @@ export default function Home() {
     setScenario(id);
     if (!selected) return;
     if (id === CUSTOM_SCENARIO_ID) {
-      if (!prompt.trim()) setPrompt("Describe the AI action, what changed, and what consequence would follow if it proceeds.");
+      // A custom run is a clean execution surface. Never inherit a frozen/demo
+      // fixture, replay packet, or structured witness from the prior scenario.
+      setCustomScenarioName("Custom execution scenario");
+      setPrompt("");
+      setExactPacketReplay(false);
+      setExactPacketJson("");
+      setCustomRequestedActionJson("");
+      setCustomAuthorityProvenanceJson("");
+      setCustomGovernanceFactsJson("");
+      setCustomDownstreamAccountabilityJson("");
+      setCustomObligationWitnessJson("");
+      setCustomStateProvenanceJson("");
+      setError(null);
+      setResult(null);
       return;
     }
+    setExactPacketReplay(false);
+    setExactPacketJson("");
     setPrompt(selected.prompt);
   }
 
