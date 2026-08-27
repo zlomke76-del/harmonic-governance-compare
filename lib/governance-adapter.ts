@@ -1704,6 +1704,7 @@ export async function evaluateUnifiedGovernance(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  allowHarnessInference?: boolean;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   if (params.runtimeTarget === "v2") return evaluateFrozenV2(params);
 
