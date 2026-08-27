@@ -1,0 +1,7 @@
+FULL-FILE DELTA
+
+Changed/added files:
+app/page.tsx
+lib/governance-adapter.ts
+
+Deleted files (if any):
