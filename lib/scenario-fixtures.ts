@@ -5,7 +5,8 @@ import type {
   GovernanceObligationWitness,
   GovernanceRequestedAction,
   GovernanceRealityWitness,
-  GovernanceStateProvenanceWitness
+  GovernanceStateProvenanceWitness,
+  GovernanceUnderstandingWitness
 } from "./types";
 
 export type FrozenScenarioFixture = {
@@ -18,6 +19,7 @@ export type FrozenScenarioFixture = {
   authorityProvenance: GovernanceAuthorityProvenance;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance: GovernanceStateProvenanceWitness;
+  understandingWitness?: GovernanceUnderstandingWitness;
   governanceFacts?: GovernanceContinuityFacts;
 };
 
@@ -40,6 +42,7 @@ function fixture(params: {
   reversibility: "reversible" | "partially_reversible" | "difficult_to_reverse" | "irreversible";
   obligation?: { kind: "prohibition" | "prerequisite"; status: "unsatisfied" | "satisfied" | "unresolved"; text: string };
   lifeSafety?: boolean;
+  understandingEstablished?: boolean;
 }): FrozenScenarioFixture {
   const base = `fixture://frozen-scenario/${params.id}/v1`;
   const t0 = `${base}#t0`;
@@ -113,6 +116,17 @@ function fixture(params: {
         source: `${base}#obligation`,
         canonical_text: params.obligation.text,
         evidence_refs: [`${base}#obligation`]
+      }
+    } : {}),
+    ...(params.understandingEstablished ? {
+      understandingWitness: {
+        current: true,
+        complete: true,
+        provenance_preserved: true,
+        applicable: true,
+        confidence: 1,
+        source_ids: [`${base}#understanding`],
+        revision_status: "current"
       }
     } : {}),
     stateProvenance: {
@@ -311,6 +325,7 @@ export const FROZEN_SCENARIO_FIXTURES: Record<string, FrozenScenarioFixture> = {
     reversibility: "irreversible",
     obligation: { kind: "prerequisite", status: "unsatisfied", text: "Wind must remain within the approved operating envelope at the binding moment for crane movement." },
     lifeSafety: true,
+    understandingEstablished: true,
   }),
   "substation-crew-present": fixture({
     id: "substation-crew-present",

@@ -1,3 +1,14 @@
+
+export type GovernanceUnderstandingWitness = {
+  current: boolean;
+  complete: boolean;
+  provenance_preserved: boolean;
+  applicable: boolean;
+  confidence: number;
+  source_ids: string[];
+  revision_status?: string;
+};
+
 export type GovernanceContinuityFacts = {
   life_safety_context?: boolean | null;
   primary_authority_available?: boolean | null;

@@ -11,6 +11,7 @@ import type {
   GovernanceConsequenceProfile,
   GovernanceObligationWitness,
   GovernanceStateProvenanceWitness,
+  GovernanceUnderstandingWitness,
   RuntimeTarget,
   LaneName,
   PrimitiveAdmissibility,
@@ -881,6 +882,7 @@ function buildGovernancePackPayload(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  understandingWitness?: GovernanceUnderstandingWitness;
   allowHarnessInference?: boolean;
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
@@ -1045,6 +1047,7 @@ function buildGovernancePackPayload(params: {
   if (effectiveAuthorityProvenance) packet.authority_provenance = effectiveAuthorityProvenance;
   if (params.obligationWitness) packet.obligation_witness = params.obligationWitness;
   if (effectiveStateProvenance) packet.present_state_provenance = effectiveStateProvenance;
+  if (params.understandingWitness) packet.understanding_state = params.understandingWitness;
   if (params.downstreamAccountability) packet.downstream_accountability = params.downstreamAccountability;
 
   return packet;
@@ -1611,6 +1614,7 @@ async function evaluateFrozenV2(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  understandingWitness?: GovernanceUnderstandingWitness;
   allowHarnessInference?: boolean;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   const { url, key } = v2Endpoint();
@@ -1757,6 +1761,7 @@ export async function evaluateUnifiedGovernance(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  understandingWitness?: GovernanceUnderstandingWitness;
   allowHarnessInference?: boolean;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   if (params.runtimeTarget === "v2") return evaluateFrozenV2(params);
