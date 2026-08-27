@@ -1465,6 +1465,11 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
   const dependencyManifest = getRawRecord(dependencies.manifest);
   const presentStateBinding = getRawRecord(presentState.binding);
   const requestWitness = getRawRecord(raw.harness_request_witness);
+  const primitiveRaw = getRawRecord(raw.primitive_results);
+  const consequenceRaw = getRawRecord(primitiveRaw.consequence_boundary);
+  const consequenceTopology = getRawRecord(consequenceRaw.consequence_topology);
+  const consequenceInvariant = getRawRecord(consequenceRaw.consequence_invariant);
+  const derivedDeps = getRawRecord(dependencyManifest.derived_constitutional_dependencies);
   const exactReplay = requestWitness.mode === "exact_packet_replay";
 
   const rows = [
@@ -1526,6 +1531,12 @@ function EngineeringView({ result, lane }: { result: CompareResponse; lane?: Lan
         return String(presentState.epistemic_status || "NOT_PROVIDED");
       })()
     },
+    { label: "Declared Consequence Surface", value: String(consequenceTopology.declared_execution_surface || "Not established") },
+    { label: "Binding Consequence Surface", value: String(consequenceTopology.binding_surface || "Not established") },
+    { label: "Governed Consequence Surface", value: String(consequenceTopology.governed_surface || "Not established") },
+    { label: "Consequence Surface Status", value: `execution=${String(consequenceTopology.execution_surface_established ?? "unknown")} · downstream=${String(consequenceTopology.downstream_binding_surface_established ?? "unknown")} · direct=${String(consequenceTopology.direct_binding_execution ?? "unknown")} · invariant=${String(consequenceInvariant.satisfied ?? "unknown")}` },
+    { label: "Consequence Level / Reversibility", value: `${String(consequenceTopology.level || "unknown")} · ${String(consequenceTopology.reversibility || "unknown")}` },
+    { label: "Causal Signals", value: `${Array.isArray(derivedDeps.controlling_signals) ? derivedDeps.controlling_signals.length : 0} blocking · ${Array.isArray(derivedDeps.contextual_signals) ? derivedDeps.contextual_signals.length : 0} contextual` },
     { label: "Determination", value: `${String(determination.outcome || lane?.evaluation.decision || "UNKNOWN")} · admissible=${String(determination.admissible ?? "unknown")} · action=${String(determination.action || "none")}` },
     { label: "Determination Identity", value: `${String(determination.determination_id || "not returned")} · ${shortHash(typeof determination.determination_hash === "string" ? determination.determination_hash : undefined)}` },
     { label: "Dependencies", value: dependencies.dependency_root ? `${Object.keys(dependencyManifest).length} manifest fields · root ${shortHash(String(dependencies.dependency_root))}` : "Dependency root not returned" },
