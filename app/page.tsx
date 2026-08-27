@@ -71,7 +71,7 @@ const CUSTOM_SCENARIO_ID = "custom";
 const PATTERN_ALL = "All constitutional patterns";
 
 const RUNTIME_OPTIONS: Array<{ id: RuntimeTarget; label: string; note: string }> = [
-  { id: "v4", label: "Current Production", note: "Live Harmonic constitutional runtime" },
+  { id: "v4_1", label: "Runtime 4.1 · Primary", note: "Frozen Harmonic Runtime v4.1 production reference" },
   { id: "v2", label: "Frozen V2 · 6a3a89f", note: "TA-14 frozen implementation boundary" }
 ];
 
@@ -1744,7 +1744,7 @@ export default function Home() {
   const [scenario, setScenario] = useState(scenarios[0]?.id ?? "clinical-allergy-update");
   const [customScenarioName, setCustomScenarioName] = useState("Custom execution scenario");
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
-  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v4");
+  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v4_1");
   const [includeHarmonicOnly, setIncludeHarmonicOnly] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompareResponse | null>(null);
@@ -1786,7 +1786,7 @@ export default function Home() {
     const savedRuntime = window.localStorage.getItem("harmonic.compare.runtime");
     if (savedModel && MODEL_OPTIONS.some((item) => item.id === savedModel)) setSelectedModel(savedModel);
     if (savedScenario && scenarios.some((item) => item.id === savedScenario)) applyScenario(savedScenario);
-    if (savedRuntime === "v2" || savedRuntime === "v4") setRuntimeTarget(savedRuntime);
+    if (savedRuntime === "v2" || savedRuntime === "v4" || savedRuntime === "v4_1") setRuntimeTarget(savedRuntime);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
