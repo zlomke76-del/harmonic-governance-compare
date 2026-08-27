@@ -295,7 +295,7 @@ function scenarioOptions(): ScenarioOption[] {
       consequenceProfile: {
         level: "high",
         execution_surface: "contract_execution",
-        reversibility: "hard_to_reverse",
+        reversibility: "difficult_to_reverse",
         requires_operator_review: true,
         source_class: "explicit_synthetic_fixture"
       },
