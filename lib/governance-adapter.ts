@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   GovernanceDecision,
   GovernanceEvaluation,
@@ -15,6 +16,32 @@ import type {
 } from "./types";
 
 const DEFAULT_HARMONIC_API_URL = "https://www.solace-harmonic.com/api/evaluate";
+
+const HARNESS_METHODOLOGY_VERSION = "v87-falsification-integrity-2026-08-26";
+const HARNESS_METHODOLOGY_DESCRIPTOR = {
+  packet_construction: "explicit-witness-first",
+  model_response_role: "proposed_response_only",
+  model_response_as_observed_reality: false,
+  whole_prompt_as_current_reality: false,
+  synthetic_freshness: false,
+  disposition_authority: "harmonic",
+  natural_language_inference: "opt_in",
+  canonical_packet_export: true
+} as const;
+
+function stableCanonicalize(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableCanonicalize).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableCanonicalize(record[key])}`).join(",")}}`;
+}
+
+function sha256Canonical(value: unknown): string {
+  return createHash("sha256").update(stableCanonicalize(value)).digest("hex");
+}
+
+const HARNESS_METHODOLOGY_HASH = sha256Canonical(HARNESS_METHODOLOGY_DESCRIPTOR);
+
 
 function normalizeDecision(value: unknown): GovernanceDecision {
   const normalized = String(value || "").trim().toUpperCase();
@@ -318,52 +345,8 @@ function actionTypeForScenario(params: { prompt?: string; response?: string; sce
   return classifyExecutionContext(params).surface;
 }
 
-function decisionFromExecutionContext(context: ExecutionContext): GovernanceDecision {
-  if (context.shouldBlockExecution) return "BLOCK";
-  if (context.shouldEscalate) return "ESCALATE";
-  if (context.requiresOperatorReview || context.consequenceLevel === "high") return "CONSTRAIN";
-  return "ALLOW";
-}
 
-function mostRestrictiveDecision(...decisions: GovernanceDecision[]): GovernanceDecision {
-  const rank: Record<GovernanceDecision, number> = {
-    UNKNOWN: 0,
-    ALLOW: 1,
-    CONSTRAIN: 2,
-    ESCALATE: 3,
-    EMERGENCY_CONTINUITY: 4,
-    BLOCK: 5
-  };
-  return decisions.reduce((current, next) => (rank[next] > rank[current] ? next : current), "UNKNOWN" as GovernanceDecision);
-}
 
-function decisionFromPrimitiveResults(primitives?: PrimitiveResult[]): GovernanceDecision {
-  if (!primitives?.length) return "UNKNOWN";
-  const byKey = Object.fromEntries(primitives.map((primitive) => [primitive.key, primitive]));
-  const authority = byKey.authority_continuity;
-  const consequence = byKey.consequence_boundary;
-  const runtime = byKey.runtime_admissibility;
-
-  const text = primitives.map((primitive) => `${primitive.outcome} ${primitive.action || ""} ${primitive.admissible}`).join(" ").toUpperCase();
-
-  if (text.includes("AUTHORITY_LOST") || text.includes("INADMISSIBLE") || text.includes("SHOULD_BLOCK_EXECUTION")) {
-    return "BLOCK";
-  }
-
-  if (text.includes("ESCALATION_REQUIRED") || text.includes("BOUNDARY_CRITICAL")) {
-    return "ESCALATE";
-  }
-
-  if (text.includes("CONDITIONALLY_ADMISSIBLE") || text.includes("BOUNDARY_ELEVATED") || text.includes("REVALIDATION")) {
-    return "CONSTRAIN";
-  }
-
-  if (authority?.admissible === "FAIL" || runtime?.admissible === "FAIL") return "BLOCK";
-  if (consequence?.admissible === "FAIL") return "ESCALATE";
-  if (consequence?.outcome.toUpperCase().includes("ELEVATED")) return "CONSTRAIN";
-
-  return "ALLOW";
-}
 
 function decisionFromArtifact(json: Record<string, unknown>): GovernanceDecision {
   const executionBoundary = asRecord(json.execution_boundary);
@@ -883,31 +866,38 @@ function buildGovernancePackPayload(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  allowHarnessInference?: boolean;
   outboundContinuity?: ReturnType<typeof deriveContinuityHints>;
 }) {
-  const fixtureWitness = deriveSyntheticFixtureWitness(params.prompt, params.scenario);
+  const allowHarnessInference = params.allowHarnessInference === true;
+  const fixtureWitness = allowHarnessInference
+    ? deriveSyntheticFixtureWitness(params.prompt, params.scenario)
+    : null;
   const effectiveRequestedAction = params.requestedAction || fixtureWitness?.requestedAction;
   const effectiveAuthorityProvenance = params.authorityProvenance || fixtureWitness?.authorityProvenance;
   const effectiveStateProvenance = params.stateProvenance || fixtureWitness?.stateProvenance;
 
-  // V86 methodology hardening:
-  // The candidate response is a proposed consequence/output. It is never evidence
-  // about external reality merely because a model generated it. All harness-side
-  // semantic classification is therefore computed from the operator-authored
-  // scenario only, never from params.response.
-  const context = classifyExecutionContext({
-    prompt: params.prompt,
-    scenario: params.scenario,
-    response: ""
-  });
+  // V87 falsification integrity:
+  // Natural-language classification is explicitly opt-in. Custom/adversarial tests
+  // default to structured witnesses only so the harness does not become an
+  // epistemic co-author of the governance packet.
+  const context = allowHarnessInference
+    ? classifyExecutionContext({
+        prompt: params.prompt,
+        scenario: params.scenario,
+        response: ""
+      })
+    : null;
 
   const requestedAction = effectiveRequestedAction || {
-    type: context.surface,
+    type: "unspecified",
     scope: [params.scenario]
   };
 
   const consequenceLevel =
-    requestedAction.type === "financial_execution" ? "critical" : context.consequenceLevel;
+    requestedAction.type === "financial_execution"
+      ? "critical"
+      : context?.consequenceLevel;
 
   const explicitStructuredInput =
     Boolean(params.governanceFacts) ||
@@ -921,11 +911,13 @@ function buildGovernancePackPayload(params: {
     ? "structured_fixture"
     : explicitStructuredInput
       ? "explicit_structured"
-      : "exploratory_natural_language";
+      : allowHarnessInference
+        ? "exploratory_natural_language"
+        : "explicit_witness_required";
 
   const derivedFields: string[] = [];
-  if (!effectiveRequestedAction) derivedFields.push("requested_action");
-  if (!params.requestedAction && !fixtureWitness?.requestedAction) derivedFields.push("consequence_profile");
+  if (!effectiveRequestedAction) derivedFields.push("requested_action_default_unspecified");
+  if (allowHarnessInference && !params.requestedAction && !fixtureWitness?.requestedAction) derivedFields.push("consequence_profile");
   if (fixtureWitness) derivedFields.push(...fixtureWitness.translatedFields);
 
   const packet: Record<string, unknown> = {
@@ -942,8 +934,11 @@ function buildGovernancePackPayload(params: {
     response: params.response,
 
     harness_witness_meta: {
-      adapter_build: "v86-methodology-hardening-2026-08-26",
+      adapter_build: HARNESS_METHODOLOGY_VERSION,
+      methodology_version: HARNESS_METHODOLOGY_VERSION,
+      methodology_hash: HARNESS_METHODOLOGY_HASH,
       methodology_mode: methodologyMode,
+      allow_harness_inference: allowHarnessInference,
       disposition_authority: "harmonic",
       model_response_role: "proposed_response_only",
       model_response_used_as_observed_reality: false,
@@ -962,32 +957,36 @@ function buildGovernancePackPayload(params: {
 
     requested_action: requestedAction,
 
-    consequence_profile: {
-      level: consequenceLevel,
-      reversibility:
-        requestedAction.type === "financial_execution"
-          ? "difficult_to_reverse"
-          : context.reversibility,
-      execution_surface: requestedAction.type,
-      execution_surface_reason: context.reason,
-      requires_operator_review:
-        requestedAction.type === "financial_execution"
-          ? true
-          : context.requiresOperatorReview,
-      should_block_execution: context.shouldBlockExecution,
-      should_escalate: context.shouldEscalate,
-      source_class:
-        effectiveRequestedAction
-          ? "structured_requested_action"
-          : "harness_exploratory_classification"
-    },
+    ...((context || effectiveRequestedAction) ? {
+      consequence_profile: {
+        ...(consequenceLevel ? { level: consequenceLevel } : {}),
+        execution_surface: requestedAction.type,
+        ...(context ? {
+          reversibility:
+            requestedAction.type === "financial_execution"
+              ? "difficult_to_reverse"
+              : context.reversibility,
+          execution_surface_reason: context.reason,
+          requires_operator_review:
+            requestedAction.type === "financial_execution"
+              ? true
+              : context.requiresOperatorReview,
+          should_block_execution: context.shouldBlockExecution,
+          should_escalate: context.shouldEscalate
+        } : {}),
+        source_class:
+          effectiveRequestedAction
+            ? "structured_requested_action"
+            : "harness_exploratory_classification"
+      }
+    } : {}),
 
     safeguards: {
-      execution_surface_classifier: {
+      execution_surface_classifier: context ? {
         ...context,
         source_class: "harness_exploratory_classification",
         model_response_consulted: false
-      },
+      } : null,
       ...(fixtureWitness
         ? {
             synthetic_fixture_control: {
@@ -1087,11 +1086,19 @@ function buildGovernanceRequestWitness(payload: unknown) {
     scenario_prompt_present: typeof packet.scenario_prompt === "string" && packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof packet.scenario_label === "string" ? packet.scenario_label : null,
     methodology: {
+      version: typeof witnessMeta.methodology_version === "string" ? witnessMeta.methodology_version : HARNESS_METHODOLOGY_VERSION,
+      hash: typeof witnessMeta.methodology_hash === "string" ? witnessMeta.methodology_hash : HARNESS_METHODOLOGY_HASH,
       mode: typeof witnessMeta.methodology_mode === "string" ? witnessMeta.methodology_mode : "unknown",
       disposition_authority: typeof witnessMeta.disposition_authority === "string" ? witnessMeta.disposition_authority : "harmonic",
       harness_derived_fields: Array.isArray(witnessMeta.harness_derived_fields) ? witnessMeta.harness_derived_fields : [],
-      freshness_stamped_by_harness: witnessMeta.freshness_stamped_by_harness === true,
-      whole_prompt_promoted_to_current_reality: witnessMeta.whole_prompt_promoted_to_current_reality === true
+      harness_inference_enabled: witnessMeta.allow_harness_inference === true,
+      freshness_stamped_by_harness: false,
+      whole_prompt_promoted_to_current_reality: false
+    },
+    canonical_packet: {
+      sha256: sha256Canonical(packet),
+      canonical_bytes: Buffer.byteLength(stableCanonicalize(packet), "utf8"),
+      export: packet
     },
     model_response_binding: {
       role: typeof witnessMeta.model_response_role === "string" ? witnessMeta.model_response_role : null,
@@ -1553,6 +1560,7 @@ async function evaluateFrozenV2(params: {
   downstreamAccountability?: GovernanceDownstreamAccountability;
   obligationWitness?: GovernanceObligationWitness;
   stateProvenance?: GovernanceStateProvenanceWitness;
+  allowHarnessInference?: boolean;
 }): Promise<{ harmonic: GovernanceEvaluation; harmonic_governance: GovernanceEvaluation }> {
   const { url, key } = v2Endpoint();
   if (!url || !key) {
@@ -1732,7 +1740,7 @@ export async function evaluateUnifiedGovernance(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "X-Harmonic-Harness-Build": "v86-methodology-hardening-2026-08-26"
+      "X-Harmonic-Harness-Build": HARNESS_METHODOLOGY_VERSION
     },
     body: JSON.stringify(outboundPayload)
   });
@@ -1787,11 +1795,19 @@ export function projectExactPacketReplay(params: {
     scenario_prompt_present: typeof params.packet.scenario_prompt === "string" && params.packet.scenario_prompt.trim().length > 0,
     scenario_label: typeof params.packet.scenario_label === "string" ? params.packet.scenario_label : null,
     methodology: {
+      version: HARNESS_METHODOLOGY_VERSION,
+      hash: HARNESS_METHODOLOGY_HASH,
       mode: "exact_packet_replay",
       disposition_authority: "harmonic",
       harness_derived_fields: [],
+      harness_inference_enabled: false,
       freshness_stamped_by_harness: false,
       whole_prompt_promoted_to_current_reality: false
+    },
+    canonical_packet: {
+      sha256: params.outboundSha256 || sha256Canonical(params.packet),
+      canonical_bytes: params.outboundBytes || Buffer.byteLength(stableCanonicalize(params.packet), "utf8"),
+      export: params.packet
     },
     model_response_binding: {
       role: "exact_packet_replay",
