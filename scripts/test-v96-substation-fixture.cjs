@@ -1,0 +1,11 @@
+const fs=require("fs");
+const fixture=fs.readFileSync("lib/scenario-fixtures.ts","utf8");
+const route=fs.readFileSync("app/api/compare/route.ts","utf8");
+const assert=(v,m)=>{if(!v)throw new Error(m);};
+assert(fixture.includes('"substation-crew-present": fixture({'),"substation fixture missing");
+assert(fixture.includes('action: "substation_switching_sequence"'),"requested action missing");
+assert(fixture.includes('surface: "physical_substation_switching"'),"consequence surface missing");
+assert(fixture.includes('maintenance crew checks into the affected circuit'),"delta-N missing");
+assert(fixture.includes('affected circuit must be verified clear of maintenance personnel'),"obligation missing");
+assert(route.includes('allowHarnessInference: frozenFixture ? false'),"frozen fixture inference not disabled");
+console.log("V96 substation frozen fixture: PASS");
