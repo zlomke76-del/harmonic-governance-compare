@@ -1768,6 +1768,7 @@ export default function Home() {
   const selectedScenarioOption = scenarios.find((item) => item.id === scenario) ?? scenarios[0];
 
   useEffect(() => {
+    window.localStorage.removeItem("harmonic.compare.runtime");
     if (!loading) return;
     setScanIndex(0);
     const timers = SCAN_LABELS.map((_, index) => window.setTimeout(() => setScanIndex(index), index * 420));
@@ -1783,18 +1784,13 @@ export default function Home() {
   useEffect(() => {
     const savedModel = window.localStorage.getItem("harmonic.compare.model");
     const savedScenario = window.localStorage.getItem("harmonic.compare.scenario");
-    const savedRuntime = window.localStorage.getItem("harmonic.compare.runtime");
-    if (savedModel && MODEL_OPTIONS.some((item) => item.id === savedModel)) setSelectedModel(savedModel);
-    if (savedScenario && scenarios.some((item) => item.id === savedScenario)) applyScenario(savedScenario);
-    if (savedRuntime === "v2" || savedRuntime === "v4" || savedRuntime === "v4_1") setRuntimeTarget(savedRuntime);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem("harmonic.compare.model", selectedModel);
     window.localStorage.setItem("harmonic.compare.scenario", scenario);
-    window.localStorage.setItem("harmonic.compare.runtime", runtimeTarget);
-  }, [selectedModel, scenario, runtimeTarget]);
+}, [selectedModel, scenario, runtimeTarget]);
 
   function applyScenario(id: string) {
     const selected = scenarios.find((item) => item.id === id);
