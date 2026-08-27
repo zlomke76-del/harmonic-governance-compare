@@ -26,6 +26,6 @@ assert(route.includes("frozenFixture?.realityWitness"),"reality witness not boun
 assert(route.includes("frozenFixture?.consequenceProfile"),"consequence profile not bound");
 assert(route.includes("frozenFixture?.authorityProvenance"),"authority provenance not bound");
 assert(route.includes("frozenFixture?.obligationWitness"),"obligation witness not bound");
-assert(adapter.includes("v94-frozen-structured-fixtures-2026-08-27"),"methodology version not advanced");
+assert(adapter.includes("v95-native-runtime-contract-normalization-2026-08-27"),"methodology version not advanced");
 assert(!fixtures.includes("model_response"),"fixture definitions must not depend on model output");
 console.log("V94 frozen structured scenario fixtures: PASS");
