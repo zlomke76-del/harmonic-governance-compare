@@ -39,6 +39,7 @@ type ScenarioOption = {
   stateProvenance?: GovernanceStateProvenanceWitness;
   understandingWitness?: GovernanceUnderstandingWitness;
   downstreamAccountability?: GovernanceDownstreamAccountability;
+  obligationWitness?: GovernanceObligationWitness;
 };
 
 const LANE_COPY: Record<string, { tone: LaneTone; title: string; subtitle: string; badge: string; icon: string }> = {
@@ -2444,7 +2445,7 @@ export default function Home() {
               ? customDownstreamAccountability
               : selectedScenarioOption?.downstreamAccountability,
           obligationWitness:
-            scenario === CUSTOM_SCENARIO_ID ? customObligationWitness : undefined,
+            scenario === CUSTOM_SCENARIO_ID ? customObligationWitness : selectedScenarioOption?.obligationWitness,
           stateProvenance:
             scenario === CUSTOM_SCENARIO_ID ? customStateProvenance : selectedScenarioOption?.stateProvenance,
           understandingWitness:
@@ -2503,7 +2504,7 @@ export default function Home() {
 
           <div className="configGrid primaryConfigGrid">
             <label>
-              Constitutional Pattern
+              Test Pattern
               <select value={selectedPattern} onChange={(e) => applyPattern(e.target.value)}>
                 {patternOptions.map((pattern) => (
                   <option key={pattern} value={pattern}>
@@ -2634,7 +2635,7 @@ export default function Home() {
 
           {scenario === CUSTOM_SCENARIO_ID && !exactPacketReplay ? (
             <details className="witnessPanel" open>
-              <summary><span>Structured constitutional witnesses</span><small>Optional · use when the scenario depends on explicit authority, continuity, provenance, obligation, or accountability facts</small></summary>
+              <summary><span>Structured constitutional witnesses</span><small>Required to establish constitutional facts · narrative text is context only and is never promoted into authority, reality, obligation, understanding, or provenance</small></summary>
               <p className="witnessNote">Custom narrative is not treated as authority evidence. Supply explicit structured witnesses here when the test depends on authority, continuity, or downstream accountability.</p>
               <div className="witnessActions">
                 <button type="button" className="secondaryButton" onClick={loadT0WitnessTemplate}>Load HEALTHCARE-D2C-001 T0 baseline</button>
