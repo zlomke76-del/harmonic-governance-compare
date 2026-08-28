@@ -32,7 +32,7 @@ const PRIMARY_VISIBILITY_SCHEMA = "4.2";
 const PRIMARY_RELEASE_CLASSIFICATION = "GOVERNANCE_VISIBILITY_UPGRADE" as const;
 
 const RequestSchema = z.object({
-  runtimeTarget: z.enum(["v4_1", "v4", "v2"]).default("v4_1"),
+  runtimeTarget: z.enum(["v4_2", "v4_1", "v4", "v2"]).default("v4_2"),
   prompt: z.string().min(1).max(12000),
   scenario: z.string().min(1).max(200).default("general"),
   includeHarmonicOnly: z.boolean().default(true),
@@ -211,7 +211,7 @@ export async function POST(req: Request) {
     const payload: CompareResponse = {
       runtimeTarget: parsed.runtimeTarget,
       runtimeLabel: parsed.runtimeTarget === "v2" ? "Frozen V2 · 6a3a89f" : parsed.runtimeTarget === "v4" ? "Runtime 4.0 · Legacy" : "Harmonic v4.2.0 · Frozen Primary",
-      ...(parsed.runtimeTarget === "v4_1" ? {
+      ...((parsed.runtimeTarget === "v4_2" || parsed.runtimeTarget === "v4_1") ? {
         harmonicRelease: PRIMARY_HARMONIC_RELEASE,
         governanceContractVersion: PRIMARY_GOVERNANCE_CONTRACT,
         visibilitySchemaVersion: PRIMARY_VISIBILITY_SCHEMA,
