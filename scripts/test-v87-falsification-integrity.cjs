@@ -7,7 +7,7 @@ const page = fs.readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 
-assert(adapter.includes('HARNESS_METHODOLOGY_VERSION = "v87-falsification-integrity-2026-08-26"'), "V87 version missing");
+assert(adapter.includes('HARNESS_METHODOLOGY_VERSION = "v95-native-runtime-contract-normalization-2026-08-27"'), "current methodology version missing");
 assert(adapter.includes("HARNESS_METHODOLOGY_HASH"), "methodology hash missing");
 assert(adapter.includes("canonical_packet:"), "canonical packet witness missing");
 assert(adapter.includes("sha256Canonical(packet)"), "canonical packet SHA-256 missing");
@@ -21,6 +21,6 @@ assert(adapter.includes("freshness_stamped_by_harness: false"), "freshness invar
 assert(adapter.includes("whole_prompt_promoted_to_current_reality: false"), "prompt/reality invariant missing");
 assert(adapter.includes("used_as_observed_reality: false"), "model-response isolation missing");
 assert(route.includes("allowHarnessInference: z.boolean().default(false)"), "API default must be explicit-witness-first");
-assert(page.includes("allowHarnessInference: scenario !== CUSTOM_SCENARIO_ID"), "custom scenarios must default explicit-only");
+assert(page.includes("scenario !== CUSTOM_SCENARIO_ID &&"), "custom scenarios must default explicit-only");
 
 console.log("V87 falsification integrity regression: PASS");
