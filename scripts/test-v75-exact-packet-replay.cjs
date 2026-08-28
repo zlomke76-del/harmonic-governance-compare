@@ -12,7 +12,7 @@ const checks = [
   ['route declares no semantic translation', route.includes('semantic_translation_performed: false')],
   ['UI exposes exact replay mode', page.includes('Exact packet replay — literal transport, no model, no semantic translation')],
   ['UI calls exact replay route', page.includes('fetch("/api/replay-exact"')],
-  ['adapter marks exact replay witness', adapter.includes('v75-exact-packet-replay-2026-08-14') && adapter.includes('llm_involved_in_packet_construction: false')]
+  ['adapter marks exact replay witness', adapter.includes('exact_packet_replay: true') && adapter.includes('llm_involved_in_packet_construction: false')]
 ];
 
 let failed = false;
