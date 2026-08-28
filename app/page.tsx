@@ -73,7 +73,7 @@ const CUSTOM_SCENARIO_ID = "custom";
 const PATTERN_ALL = "All constitutional patterns";
 
 const RUNTIME_OPTIONS: Array<{ id: RuntimeTarget; label: string; note: string }> = [
-  { id: "v4_1", label: "Harmonic v4.2.0 · Frozen Primary", note: "Governance Contract 4.2 · Governance Visibility Upgrade" },
+  { id: "v4_2", label: "Harmonic v4.2.0 · Frozen Primary", note: "Governance Contract 4.2 · Governance Visibility Upgrade" },
   { id: "v2", label: "Frozen V2 · 6a3a89f", note: "TA-14 frozen implementation boundary" }
 ];
 
@@ -1901,7 +1901,7 @@ export default function Home() {
   const [scenario, setScenario] = useState(scenarios[0]?.id ?? "clinical-allergy-update");
   const [customScenarioName, setCustomScenarioName] = useState("Custom execution scenario");
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
-  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v4_1");
+  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>("v4_2");
   const [includeHarmonicOnly, setIncludeHarmonicOnly] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompareResponse | null>(null);
@@ -1928,6 +1928,7 @@ export default function Home() {
     [scenarios, selectedPattern]
   );
   const selectedScenarioOption = scenarios.find((item) => item.id === scenario) ?? scenarios[0];
+  const frozenFixtureDetached = scenario !== CUSTOM_SCENARIO_ID && Boolean(selectedScenarioOption) && prompt.trim() !== selectedScenarioOption.prompt.trim();
 
   useEffect(() => {
     window.localStorage.removeItem("harmonic.compare.runtime");
@@ -2450,10 +2451,9 @@ export default function Home() {
             scenario === CUSTOM_SCENARIO_ID ? customStateProvenance : selectedScenarioOption?.stateProvenance,
           understandingWitness:
             scenario === CUSTOM_SCENARIO_ID ? customUnderstandingWitness : selectedScenarioOption?.understandingWitness,
-          allowHarnessInference:
-            scenario !== CUSTOM_SCENARIO_ID &&
-            !selectedScenarioOption?.realityWitness &&
-            !selectedScenarioOption?.consequenceProfile
+          // Primary Playground is explicit-witness-first. Narrative is context only;
+          // no scenario silently opts into natural-language constitutional inference.
+          allowHarnessInference: false
         })
       });
       const json = await res.json();
@@ -2688,6 +2688,9 @@ export default function Home() {
                   Test prompt
                   <div className="promptTools"><CopyButton text={prompt} label="Copy prompt" /></div>
                   <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Describe the AI action, what changed, and what consequence would follow if it proceeds." />
+                  {frozenFixtureDetached ? (
+                    <p className="witnessBoundary"><strong>Frozen fixture detached:</strong> this prompt no longer matches the scenario's frozen test packet. The predefined structured witnesses will not be bound to this edited narrative. Restore the original scenario or use Custom with explicit structured witnesses.</p>
+                  ) : null}
                 </label>
               ) : null}
 
