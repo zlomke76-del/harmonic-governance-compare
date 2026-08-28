@@ -20,7 +20,7 @@ import type {
 
 const DEFAULT_HARMONIC_API_URL = "https://www.solace-harmonic.com/api/evaluate";
 
-const HARNESS_METHODOLOGY_VERSION = "v95-native-runtime-contract-normalization-2026-08-27";
+const HARNESS_METHODOLOGY_VERSION = "v107-playground-witness-integrity-2026-08-28";
 const HARNESS_METHODOLOGY_DESCRIPTOR = {
   packet_construction: "explicit-witness-first",
   model_response_role: "proposed_response_only",
@@ -28,7 +28,7 @@ const HARNESS_METHODOLOGY_DESCRIPTOR = {
   whole_prompt_as_current_reality: false,
   synthetic_freshness: false,
   disposition_authority: "harmonic",
-  natural_language_inference: "opt_in",
+  natural_language_inference: "api_opt_in_playground_disabled",
   canonical_packet_export: true
 } as const;
 
@@ -924,7 +924,8 @@ function buildGovernancePackPayload(params: {
     Boolean(params.consequenceProfile) ||
     Boolean(params.downstreamAccountability) ||
     Boolean(params.obligationWitness) ||
-    Boolean(params.stateProvenance);
+    Boolean(params.stateProvenance) ||
+    Boolean(params.understandingWitness);
 
   const methodologyMode = fixtureWitness
     ? "structured_fixture"
@@ -966,6 +967,7 @@ function buildGovernancePackPayload(params: {
       consequence_profile_explicit: Boolean(params.consequenceProfile),
       authority_provenance_explicit: Boolean(params.authorityProvenance),
       obligation_witness_explicit: Boolean(params.obligationWitness),
+      understanding_witness_explicit: Boolean(params.understandingWitness),
       downstream_accountability_explicit: Boolean(params.downstreamAccountability),
       state_provenance_explicit: Boolean(params.stateProvenance),
       synthetic_fixture_translated: Boolean(fixtureWitness),
@@ -1002,7 +1004,9 @@ function buildGovernancePackPayload(params: {
               should_block_execution: context.shouldBlockExecution,
               should_escalate: context.shouldEscalate
             } : {}),
-            source_class: "structured_requested_action"
+            source_class: "derived_projection_not_consequence_witness",
+            epistemic_status: "DERIVED_FROM_REQUESTED_ACTION",
+            consequence_witness_supplied: false
           }
         } : {})),
 
@@ -1033,15 +1037,19 @@ function buildGovernancePackPayload(params: {
   // freshness, authority checks, revocation checks, or obligation status.
   if (params.governanceFacts) packet.continuity = { ...params.governanceFacts };
   if (params.realityWitness) {
+    const isFrozenRealityFixture = Boolean(params.realityWitness.fixture_source);
+    const realitySourceClass = isFrozenRealityFixture
+      ? "frozen_structured_fixture"
+      : "explicit_structured_witness";
     packet.declared_reality = {
       ...params.realityWitness.declared_reality,
-      source_class: "synthetic_test_fixture",
-      fixture_source: params.realityWitness.fixture_source
+      source_class: realitySourceClass,
+      ...(params.realityWitness.fixture_source ? { fixture_source: params.realityWitness.fixture_source } : {})
     };
     packet.observed_reality = {
       ...params.realityWitness.observed_reality,
-      source_class: "synthetic_test_fixture",
-      fixture_source: params.realityWitness.fixture_source
+      source_class: realitySourceClass,
+      ...(params.realityWitness.fixture_source ? { fixture_source: params.realityWitness.fixture_source } : {})
     };
   }
   if (effectiveAuthorityProvenance) packet.authority_provenance = effectiveAuthorityProvenance;
