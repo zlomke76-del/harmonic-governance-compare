@@ -100,7 +100,17 @@ export async function POST(req: Request) {
     }
 
     const observedPacketId = returnedPacketId(json);
-    if (observedPacketId && observedPacketId !== packetId) {
+    if (!observedPacketId) {
+      return NextResponse.json({
+        error: "Exact packet replay integrity failure: Harmonic did not return a verifiable packet_id.",
+        submitted_packet_id: packetId,
+        returned_packet_id: null,
+        outbound_sha256: outboundSha256,
+        outbound_bytes: outboundBytes,
+        response: json
+      }, { status: 502 });
+    }
+    if (observedPacketId !== packetId) {
       return NextResponse.json({
         error: "Exact packet replay integrity failure: returned packet_id does not match the submitted packet_id.",
         submitted_packet_id: packetId,
@@ -137,7 +147,7 @@ export async function POST(req: Request) {
     ];
 
     const payload: CompareResponse & { replayTransport: Record<string, unknown> } = {
-      runtimeTarget: "v4_1",
+      runtimeTarget: "v4_2",
       runtimeLabel: "Current Production · Exact packet replay",
       prompt: "Exact packet replay; no model inference or harness semantic translation.",
       scenario: packetId,
@@ -148,7 +158,7 @@ export async function POST(req: Request) {
         mode: "exact_packet_replay",
         submitted_packet_id: packetId,
         returned_packet_id: observedPacketId,
-        packet_id_match: observedPacketId ? observedPacketId === packetId : null,
+        packet_id_match: true,
         outbound_sha256: outboundSha256,
         outbound_bytes: outboundBytes,
         semantic_translation_performed: false,
